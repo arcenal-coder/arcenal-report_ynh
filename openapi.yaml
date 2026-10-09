@@ -1,0 +1,72 @@
+openapi: 3.0.3
+info:
+  title: ARCenal REPORT API
+  version: 0.1.0
+paths:
+  /api/v1/missions:
+    get:
+      summary: Liste les missions
+      responses:
+        '200': { description: Liste des missions }
+  /api/v1/missions/{mission_uuid}:
+    get:
+      summary: Affiche une mission
+      parameters: [{ name: mission_uuid, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Mission }
+        '404': { description: Mission introuvable }
+  /api/v1/missions/{mission_uuid}/entries:
+    get:
+      summary: Liste les notes texte d'une mission
+      parameters: [{ name: mission_uuid, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Notes } }
+    post:
+      summary: Ajoute une note texte
+      parameters: [{ name: mission_uuid, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [content], properties: { content: { type: string, maxLength: 2000 } } } } }
+      responses:
+        '201': { description: Note créée }
+        '400': { description: Données invalides }
+  /api/v1/missions/{mission_uuid}/photos:
+    post:
+      summary: Ajoute une photo à la main courante
+      parameters: [{ name: mission_uuid, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo: { type: string, format: binary }
+      responses:
+        '201': { description: Photo enregistrée }
+        '400': { description: Fichier invalide }
+        '413': { description: Fichier trop volumineux }
+  /api/v1/missions/{mission_uuid}/audio:
+    post:
+      summary: Ajoute une note vocale à la main courante
+      parameters: [{ name: mission_uuid, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio: { type: string, format: binary }
+      responses:
+        '201': { description: Note vocale enregistrée }
+        '400': { description: Fichier audio invalide }
+        '413': { description: Fichier trop volumineux }
+  /api/v1/entries/{entry_uuid}/file:
+    get:
+      summary: Ouvre le fichier d'une entrée photo ou audio
+      parameters: [{ name: entry_uuid, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Contenu de l'image }
+        '404': { description: Fichier introuvable }

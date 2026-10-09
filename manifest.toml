@@ -1,0 +1,54 @@
+packaging_format = 2
+
+id = "arcenal_report"
+name = "ARCenal REPORT"
+description.fr = "Main courante terrain, pièces jointes et préparation des rapports de mission"
+description.en = "Field log, attachments and mission report preparation"
+version = "0.1.0~ynh1"
+maintainers = ["ARCenal"]
+
+[upstream]
+license = "proprietary"
+
+[integration]
+yunohost = ">= 11.2"
+helpers_version = "2.1"
+architectures = ["amd64", "arm64"]
+multi_instance = false
+ldap = false
+sso = true
+disk = "500M"
+ram.build = "100M"
+ram.runtime = "150M"
+
+[install]
+    [install.domain]
+    type = "domain"
+
+    [install.path]
+    type = "path"
+    default = "/arcenal-report"
+
+    [install.init_main_permission]
+    type = "group"
+    default = "visitors"
+
+[resources]
+    [resources.system_user]
+
+    [resources.install_dir]
+
+    [resources.data_dir]
+    dir = "/var/lib/__APP__"
+
+    [resources.permissions]
+        [resources.permissions.main]
+        url = "/"
+        auth_header = true
+
+    [resources.ports]
+        [resources.ports.main]
+        default = 8096
+
+    [resources.apt]
+    packages = "python3, gunicorn"

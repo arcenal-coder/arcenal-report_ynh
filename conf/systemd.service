@@ -1,0 +1,23 @@
+[Unit]
+Description=ARCenal REPORT API
+After=network.target
+
+[Service]
+Type=simple
+User=__APP__
+Group=__APP__
+WorkingDirectory=__INSTALL_DIR__
+Environment=PYTHONPATH=__INSTALL_DIR__/backend
+Environment=MAIN_COURANTE_DB=__DATA_DIR__/arcenal-report.sqlite3
+Environment=MAIN_COURANTE_UPLOADS=__DATA_DIR__/uploads
+ExecStart=/usr/bin/gunicorn --workers 2 --threads 2 --timeout 120 --bind 127.0.0.1:__PORT__ app:application
+Restart=on-failure
+RestartSec=3
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__DATA_DIR__
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

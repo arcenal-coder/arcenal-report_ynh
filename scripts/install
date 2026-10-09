@@ -1,0 +1,17 @@
+#!/bin/bash
+set -eu
+
+source /usr/share/yunohost/helpers
+source "$(dirname "$0")/_common.sh"
+
+package_root="$(cd "$(dirname "$0")/.." && pwd)"
+mkdir -p "$install_dir/web" "$install_dir/backend" "$data_dir/uploads"
+cp -a "$package_root/static/." "$install_dir/web/"
+cp "$package_root/app.py" "$package_root/database.py" "$install_dir/backend/"
+
+set_runtime_permissions
+configure_files
+yunohost service add "$app" --description="Main courante et rapports de mission" --log="systemd"
+ynh_systemctl --service="$app" --action="start" --log_path="systemd"
+ynh_systemctl --service="nginx" --action="reload"
+ynh_script_progression --message="ARCenal REPORT est installé." --last

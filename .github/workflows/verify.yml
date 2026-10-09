@@ -1,0 +1,29 @@
+name: Vérifier le paquet ARCenal REPORT
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Vérifier le code et les scripts
+        run: |
+          python -m py_compile app.py database.py
+          python -m unittest discover -s tests -v
+          bash -n scripts/*
+      - name: Exécuter le linter YunoHost
+        continue-on-error: true
+        run: |
+          git clone --depth 1 https://github.com/YunoHost/package_linter.git /tmp/package_linter
+          python -m pip install -r /tmp/package_linter/requirements.txt
+          python /tmp/package_linter/package_linter.py .

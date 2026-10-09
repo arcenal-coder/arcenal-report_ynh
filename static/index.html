@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARCenal REPORT</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="application-shell">
+    <header class="topbar">
+      <button class="brand" type="button" data-home aria-label="Retour aux missions">MAIN <span>COURANTE</span></button>
+      <span class="stage">ÉTAPE 3</span>
+    </header>
+    <section id="missions-view" aria-labelledby="missions-title">
+      <p class="eyebrow">Bonjour Jean</p>
+      <h1 id="missions-title">Mes missions</h1>
+      <div id="missions" class="mission-list" aria-live="polite"></div>
+    </section>
+    <section id="mission-view" hidden aria-live="polite"></section>
+  </main>
+  <template id="mission-template">
+    <button class="back-button" type="button" data-home>← Mes missions</button>
+    <p class="eyebrow" id="client-name"></p>
+    <h1 id="mission-title"></h1>
+    <p class="reference" id="mission-reference"></p>
+    <section class="timeline-section" aria-labelledby="entries-title">
+      <div class="section-heading"><h2 id="entries-title">Main courante</h2><span>En cours</span></div>
+      <div id="entries" class="entries"></div>
+    </section>
+    <button class="primary-button" id="add-entry" type="button">＋ Ajouter</button>
+    <div id="add-options" class="add-options" hidden>
+      <button type="button" id="add-text">✍ <span>Texte</span></button>
+      <button type="button" id="add-photo">📷 <span>Photo</span></button>
+      <button type="button" id="add-audio">🎙 <span>Vocal</span></button>
+    </div>
+    <form id="entry-form" hidden>
+      <label for="entry-content">Nouvelle note</label>
+      <textarea id="entry-content" maxlength="2000" required placeholder="Décrivez l'information terrain…"></textarea>
+      <div class="form-actions"><button type="button" class="secondary-button" id="cancel-entry">Annuler</button><button type="submit" class="primary-button">Enregistrer</button></div>
+      <p id="form-error" class="form-error" role="alert"></p>
+    </form>
+    <form id="photo-form" hidden enctype="multipart/form-data">
+      <label for="photo-file">Ajouter une photo</label>
+      <input id="photo-file" name="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required>
+      <p class="retention-note">La photo restera disponible jusqu’à la génération du rapport de fin de mission.</p>
+      <div class="form-actions"><button type="button" class="secondary-button" id="cancel-photo">Annuler</button><button type="submit" class="primary-button">Enregistrer</button></div>
+      <p id="photo-error" class="form-error" role="alert"></p>
+    </form>
+    <form id="audio-form" hidden enctype="multipart/form-data">
+      <label>Nouvelle note vocale</label>
+      <p class="recording-help">Enregistrez votre message, réécoutez-le, puis sauvegardez-le dans la main courante.</p>
+      <div class="recording-actions">
+        <button type="button" class="record-button" id="start-recording">● Démarrer</button>
+        <button type="button" class="secondary-button" id="stop-recording" disabled>■ Arrêter</button>
+      </div>
+      <p id="recording-status" class="recording-status" aria-live="polite">Prêt à enregistrer</p>
+      <audio id="recording-preview" controls hidden></audio>
+      <details class="audio-fallback">
+        <summary>Choisir un fichier audio existant</summary>
+        <input id="audio-file" name="audio" type="file" accept="audio/*" capture>
+      </details>
+      <div class="form-actions"><button type="button" class="secondary-button" id="cancel-audio">Annuler</button><button type="submit" class="primary-button" id="save-audio" disabled>Enregistrer</button></div>
+      <p id="audio-error" class="form-error" role="alert"></p>
+    </form>
+    <button class="report-button" type="button" disabled>Générer le rapport <small>Disponible prochainement</small></button>
+  </template>
+  <script src="app.js"></script>
+</body>
+</html>

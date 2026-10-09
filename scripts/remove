@@ -1,0 +1,11 @@
+#!/bin/bash
+set -eu
+
+source /usr/share/yunohost/helpers
+source "$(dirname "$0")/_common.sh"
+
+ynh_systemctl --service="$app" --action="stop" --log_path="systemd" || true
+yunohost service remove "$app" || true
+ynh_config_remove_systemd
+ynh_config_remove_nginx
+ynh_systemctl --service="nginx" --action="reload"

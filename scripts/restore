@@ -1,0 +1,13 @@
+#!/bin/bash
+set -eu
+
+source /usr/share/yunohost/helpers
+source "$(dirname "$0")/_common.sh"
+
+ynh_restore "$install_dir"
+ynh_restore "$data_dir"
+set_runtime_permissions
+configure_files
+yunohost service add "$app" --description="Main courante et rapports de mission" --log="systemd" || true
+ynh_systemctl --service="$app" --action="start" --log_path="systemd"
+ynh_systemctl --service="nginx" --action="reload"

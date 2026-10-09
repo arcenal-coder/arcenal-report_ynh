@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aperçu cible — Main courante</title>
+  <link rel="stylesheet" href="/final-preview.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <a href="/" class="brand">MAIN <span>COURANTE</span></a>
+      <span class="demo-label">APERÇU — DONNÉES DE DÉMONSTRATION</span>
+    </header>
+
+    <section class="screen active" id="missions" aria-labelledby="missions-title">
+      <p class="greeting">Bonjour Jean</p>
+      <h1 id="missions-title">Mes missions</h1>
+      <p class="intro">Retrouvez vos missions et continuez votre main courante.</p>
+      <div class="cards">
+        <button class="mission-card" data-screen="mission">
+          <span class="client">TOTALENERGIES</span><strong>Coordination tirs radio</strong><span class="reference">ONYX-2026-0145 · 25 septembre 2026</span>
+          <footer><span class="status current">En cours</span><b>Ouvrir →</b></footer>
+        </button>
+        <button class="mission-card muted-card">
+          <span class="client">AQUERIS</span><strong>Audit terrain</strong><span class="reference">ONYX-2026-0158</span>
+          <footer><span class="status current">En cours</span><b>Ouvrir →</b></footer>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen" id="mission" aria-labelledby="mission-title">
+      <button class="back" data-screen="missions">← Mes missions</button>
+      <div class="mission-heading"><p class="client">TOTALENERGIES</p><h1 id="mission-title">Coordination tirs radio</h1><p class="reference">ONYX-2026-0145 · 25 septembre 2026</p></div>
+      <section class="panel">
+        <div class="panel-heading"><h2>Main courante</h2><span class="status current">En cours</span></div>
+        <ol class="timeline">
+          <li><time>08:12</time><p>Arrivée sur site.</p></li>
+          <li><time>09:05</time><p>Permis non disponible.</p></li>
+          <li><time>09:26</time><p><i>▣</i> Photo terrain <small>Temporaire</small></p></li>
+          <li><time>10:14</time><p><i>◖</i> Note vocale <small>Transcription disponible</small></p></li>
+        </ol>
+      </section>
+      <div class="action-row"><button class="primary" type="button" data-demo-message>＋ Ajouter</button><button class="outline" data-screen="draft">Générer le rapport</button></div>
+      <p class="hint" id="demo-message">Dans le produit final, ce bouton ouvre Texte, Photo et Vocal.</p>
+      <section class="reports-preview"><h2>Rapports</h2><button class="report-item" data-screen="validated"><span><b>24/09/2026</b><small>Rapport journalier</small></span><span class="status validated">✓ Validé</span><b>Ouvrir →</b></button></section>
+    </section>
+
+    <section class="screen" id="draft" aria-labelledby="draft-title">
+      <button class="back" data-screen="mission">← Retour à la mission</button>
+      <p class="client">TOTALENERGIES</p><h1 id="draft-title">Rapport journalier</h1><p class="reference">25 septembre 2026</p>
+      <div class="report-status"><span class="status draft">Brouillon</span><p>À relire et modifier avant validation.</p></div>
+      <article class="report">
+        <section><h2>1. Activités réalisées</h2><p>Arrivée sur site et coordination initiale avec les équipes présentes.</p></section>
+        <section><h2>2. Événements significatifs</h2><p>Le permis requis n’était pas disponible à 09:05.</p></section>
+        <section><h2>3. Difficultés rencontrées</h2><p>Document de permis manquant au début de l’intervention.</p></section>
+        <section><h2>4. Actions réalisées</h2><p>Information remontée au responsable travaux.</p></section>
+        <section><h2>5. Points restant ouverts</h2><p>Obtention et vérification du permis.</p></section>
+      </article>
+      <div class="action-row"><button class="outline" data-demo-message>Modifier</button><button class="primary" data-screen="validated">Valider</button></div>
+      <p class="hint">Aperçu du futur flux : la validation déclenchera ensuite le PDF et le stockage vérifié dans Nextcloud.</p>
+    </section>
+
+    <section class="screen" id="validated" aria-labelledby="validated-title">
+      <button class="back" data-screen="mission">← Retour à la mission</button>
+      <div class="success-icon">✓</div><p class="client">TOTALENERGIES</p><h1 id="validated-title">Rapport validé</h1><p class="reference">Rapport journalier · 24 septembre 2026</p>
+      <section class="storage-card"><div><span class="status validated">✓ Stockage vérifié</span><h2>Nextcloud</h2><p>/Missions/TOTALENERGIES/ONYX-2026-0145/rapports/rapport-2026-09-24.pdf</p></div><button class="outline" data-demo-message>Ouvrir le PDF</button></section>
+      <section class="final-report"><h2>Rapport de fin de mission</h2><p>Non généré. Disponible lorsque la mission est clôturée.</p><button disabled>Générer le rapport final</button></section>
+      <p class="hint">Ce stockage et ce PDF sont présentés uniquement comme cible visuelle : ils ne sont pas encore implémentés.</p>
+    </section>
+  </main>
+  <script src="/final-preview.js"></script>
+</body>
+</html>
