@@ -10,6 +10,12 @@
 - scripts d’installation, de mise à jour, de suppression, de sauvegarde et de restauration ;
 - vérifications automatisées du code, des tests et des scripts à chaque dépôt GitHub.
 
+## POC transcription locale — 12 octobre 2026
+
+- intégration de `whisper.cpp` et du modèle local `base` ;
+- conversion audio par `ffmpeg`, transcription française en tâche de fond et stockage du texte lié à la note vocale ;
+- suivi d’état dans l’interface et possibilité de relancer une transcription indisponible ou échouée.
+
 ## Principes de déploiement
 
 - Le code applicatif est installé dans `/var/www/arcenal_report` par YunoHost.

@@ -21,10 +21,13 @@ class ApiTest(unittest.TestCase):
         self.upload_directory = tempfile.TemporaryDirectory()
         app.UPLOAD_DIRECTORY = Path(self.upload_directory.name)
         database.initialise(app.DATABASE_PATH)
+        self.original_queue = app.transcription.queue
+        app.transcription.queue = lambda *args: None
 
     def tearDown(self):
         app.DATABASE_PATH = self.previous_path
         app.UPLOAD_DIRECTORY = self.previous_upload_directory
+        app.transcription.queue = self.original_queue
         self.upload_directory.cleanup()
         os.unlink(self.temporary_file.name)
 
@@ -107,10 +110,21 @@ class ApiTest(unittest.TestCase):
         )
         self.assertEqual(status, '201 Created')
         self.assertEqual(created['entry_type'], 'audio')
+        self.assertEqual(database.get_entry(app.DATABASE_PATH, created['uuid'])['transcription_status'], 'not_requested')
         status, headers, content = self.request_raw('GET', f"/api/v1/entries/{created['uuid']}/file")
         self.assertEqual(status, '200 OK')
         self.assertEqual(headers['Content-Type'], 'audio/wav')
         self.assertEqual(content, wav)
+
+    def test_queues_an_audio_transcription_retry(self):
+        mission_uuid = database.list_missions(app.DATABASE_PATH)[0]['uuid']
+        entry = database.add_audio_entry(app.DATABASE_PATH, mission_uuid, 'note.wav', 'note.wav', 'audio/wav')
+        calls = []
+        app.transcription.queue = lambda *args: calls.append(args)
+        status, payload = self.request('POST', f"/api/v1/entries/{entry['uuid']}/transcribe", b'')
+        self.assertEqual(status, '202 Accepted')
+        self.assertEqual(payload['status'], 'queued')
+        self.assertEqual(calls[0][2], entry['uuid'])
 
     def test_yunohost_package_uses_relative_frontend_assets(self):
         index = (Path(app.ROOT) / 'static' / 'index.html').read_text(encoding='utf-8')

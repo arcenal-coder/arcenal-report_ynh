@@ -24,13 +24,22 @@ function renderEntry(entry) {
     return `<article class="entry"><time>${formatTime(entry.occurred_at)}</time><div><span class="entry-label">📷 ${escapeHtml(entry.original_name)}</span><img class="entry-photo" src="${apiUrl(`/entries/${entry.uuid}/file`)}" alt="${escapeHtml(entry.original_name)}" loading="lazy"></div></article>`;
   }
   if (entry.entry_type === 'audio') {
-    return `<article class="entry"><time>${formatTime(entry.occurred_at)}</time><div><span class="entry-label">🎙 Note vocale</span><audio class="entry-audio" controls preload="metadata" src="${apiUrl(`/entries/${entry.uuid}/file`)}"></audio></div></article>`;
+    const status = entry.transcription_status || 'not_requested';
+    const messages = { queued:'Transcription en attente…', processing:'Transcription en cours…', unavailable:'Transcription locale à configurer.', failed:'Transcription à relancer.' };
+    const transcript = entry.transcript ? `<p class="transcript">${escapeHtml(entry.transcript)}</p>` : '';
+    const retry = status === 'failed' || status === 'unavailable' ? `<button class="transcribe-button" type="button" data-transcribe="${entry.uuid}">Relancer la transcription</button>` : '';
+    return `<article class="entry"><time>${formatTime(entry.occurred_at)}</time><div><span class="entry-label">🎙 Note vocale</span><audio class="entry-audio" controls preload="metadata" src="${apiUrl(`/entries/${entry.uuid}/file`)}"></audio><p class="transcription-status ${status}">${status === 'completed' ? 'Transcription terminée' : messages[status] || ''}</p>${transcript}${retry}</div></article>`;
   }
   return `<article class="entry"><time>${formatTime(entry.occurred_at)}</time><p>${escapeHtml(entry.content)}</p></article>`;
 }
 
 function renderEntries(entries) {
   document.querySelector('#entries').innerHTML = entries.length ? entries.map(renderEntry).join('') : '<p>Aucune information enregistrée.</p>';
+  document.querySelectorAll('[data-transcribe]').forEach(button => button.addEventListener('click', async () => {
+    button.disabled = true;
+    await fetchJson(apiUrl(`/entries/${button.dataset.transcribe}/transcribe`), { method: 'POST' });
+    showMission(currentMission.uuid);
+  }));
 }
 
 function setupAudioRecorder(uuid, audioForm) {
@@ -124,6 +133,7 @@ async function showMission(uuid) {
   missionView.querySelector('#mission-title').textContent = currentMission.title;
   missionView.querySelector('#mission-reference').textContent = currentMission.reference;
   const { entries } = await fetchJson(apiUrl(`/missions/${uuid}/entries`)); renderEntries(entries);
+  if (entries.some(entry => entry.entry_type === 'audio' && ['queued', 'processing'].includes(entry.transcription_status))) window.setTimeout(() => showMission(uuid), 2500);
   missionView.querySelectorAll('[data-home]').forEach(button => button.addEventListener('click', showMissions));
   const options = missionView.querySelector('#add-options');
   const form = missionView.querySelector('#entry-form');

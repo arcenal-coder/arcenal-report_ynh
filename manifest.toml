@@ -4,7 +4,7 @@ id = "arcenal_report"
 name = "ARCenal REPORT"
 description.fr = "Main courante terrain, pièces jointes et préparation des rapports de mission"
 description.en = "Field log, attachments and mission report preparation"
-version = "0.1.0~ynh1"
+version = "0.1.1~ynh1"
 maintainers = ["ARCenal"]
 
 [upstream]
@@ -51,4 +51,4 @@ ram.runtime = "150M"
         default = 8096
 
     [resources.apt]
-    packages = "python3, gunicorn"
+    packages = "python3, gunicorn, ffmpeg, git, build-essential, cmake, curl"

@@ -41,25 +41,27 @@ def ensure_entries_table(connection):
     table_sql = connection.execute(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'entries'"
     ).fetchone()[0]
-    if "file_path" in column_names and "photo_category" not in column_names and "'audio'" in table_sql:
-        return
-    create_entries_table(connection, "entries_new")
-    if "file_path" in column_names:
-        connection.execute("""
-            INSERT INTO entries_new
-            (uuid, mission_uuid, entry_type, content, occurred_at, created_at,
-             file_path, original_name, mime_type)
-            SELECT uuid, mission_uuid, entry_type, content, occurred_at, created_at,
-                   file_path, original_name, mime_type
-            FROM entries
-        """)
-    else:
-        connection.execute("""
-            INSERT INTO entries_new (uuid, mission_uuid, entry_type, content, occurred_at, created_at)
-            SELECT uuid, mission_uuid, entry_type, content, occurred_at, created_at FROM entries
-        """)
-    connection.execute("DROP TABLE entries")
-    connection.execute("ALTER TABLE entries_new RENAME TO entries")
+    if "file_path" not in column_names or "'audio'" not in table_sql:
+        create_entries_table(connection, "entries_new")
+        if "file_path" in column_names:
+            connection.execute("""
+                INSERT INTO entries_new (uuid, mission_uuid, entry_type, content, occurred_at, created_at, file_path, original_name, mime_type)
+                SELECT uuid, mission_uuid, entry_type, content, occurred_at, created_at, file_path, original_name, mime_type FROM entries
+            """)
+        else:
+            connection.execute("""
+                INSERT INTO entries_new (uuid, mission_uuid, entry_type, content, occurred_at, created_at)
+                SELECT uuid, mission_uuid, entry_type, content, occurred_at, created_at FROM entries
+            """)
+        connection.execute("DROP TABLE entries")
+        connection.execute("ALTER TABLE entries_new RENAME TO entries")
+        column_names = {column[1] for column in connection.execute("PRAGMA table_info(entries)").fetchall()}
+    if "transcript" not in column_names:
+        connection.execute("ALTER TABLE entries ADD COLUMN transcript TEXT")
+    if "transcription_status" not in column_names:
+        connection.execute("ALTER TABLE entries ADD COLUMN transcription_status TEXT NOT NULL DEFAULT 'not_requested'")
+    if "transcription_error" not in column_names:
+        connection.execute("ALTER TABLE entries ADD COLUMN transcription_error TEXT")
 
 
 def create_entries_table(connection, table_name):
@@ -73,7 +75,10 @@ def create_entries_table(connection, table_name):
             created_at TEXT NOT NULL,
             file_path TEXT,
             original_name TEXT,
-            mime_type TEXT
+            mime_type TEXT,
+            transcript TEXT,
+            transcription_status TEXT NOT NULL DEFAULT 'not_requested',
+            transcription_error TEXT
         )
     """)
 
@@ -122,6 +127,14 @@ def get_entry(database_path, entry_uuid):
     with connect(database_path) as connection:
         row = connection.execute("SELECT * FROM entries WHERE uuid = ?", (entry_uuid,)).fetchone()
         return dict(row) if row else None
+
+
+def update_transcription(database_path, entry_uuid, status, transcript=None, error=None):
+    with connect(database_path) as connection:
+        connection.execute(
+            "UPDATE entries SET transcription_status = ?, transcript = ?, transcription_error = ? WHERE uuid = ?",
+            (status, transcript, error, entry_uuid),
+        )
 
 
 def add_text_entry(database_path, mission_uuid, content):

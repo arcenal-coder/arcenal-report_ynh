@@ -24,7 +24,7 @@ Depuis l’administration YunoHost, choisir **Installer une application personna
 sudo yunohost app install https://github.com/arcenal-coder/arcenal-report_ynh.git --debug
 ```
 
-Le paquet installe Nginx et Gunicorn, le service `arcenal_report`, et un répertoire de données sauvegardable. YunoHost assure l’authentification SSO ; la base SQLite et les pièces jointes sont conservées lors des mises à jour.
+Le paquet installe Nginx, Gunicorn, `ffmpeg` et `whisper.cpp` avec le modèle français local `base`. Une note vocale est convertie et transcrite sur le serveur ; ni l’audio ni le texte ne sont envoyés à un service externe. Le premier téléchargement du modèle ajoute environ 150 Mo et peut rallonger l’installation.
 
 ## Vérifications
 

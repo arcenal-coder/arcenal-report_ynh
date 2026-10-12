@@ -15,5 +15,17 @@ set_runtime_permissions() {
     find "$install_dir/web" -type f -exec chmod 640 {} +
     find "$install_dir/backend" -type d -exec chmod 750 {} +
     find "$install_dir/backend" -type f -exec chmod 640 {} +
-    chmod 750 "$install_dir" "$data_dir" "$data_dir/uploads"
+    chmod 750 "$install_dir" "$data_dir" "$data_dir/uploads" "$data_dir/models"
+    chmod 750 "$install_dir/bin/whisper-cli"
+}
+
+install_whisper_cpp() {
+    local whisper_source="$install_dir/whisper.cpp"
+    mkdir -p "$install_dir/bin" "$data_dir/models"
+    git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git "$whisper_source"
+    cmake -S "$whisper_source" -B "$whisper_source/build"
+    cmake --build "$whisper_source/build" --target whisper-cli --config Release -j "$(nproc)"
+    cp "$whisper_source/build/bin/whisper-cli" "$install_dir/bin/whisper-cli"
+    curl --fail --location --output "$data_dir/models/ggml-base.bin" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
+    ynh_safe_rm "$whisper_source"
 }

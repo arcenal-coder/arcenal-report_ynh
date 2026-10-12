@@ -8,6 +8,7 @@ from uuid import uuid4
 from wsgiref.simple_server import make_server
 
 import database
+import transcription
 
 
 ROOT = Path(__file__).parent
@@ -99,7 +100,10 @@ def save_media(mission_uuid, media, entry_type):
     absolute_path.write_bytes(media["content"])
     try:
         add_entry = database.add_photo_entry if entry_type == "photo" else database.add_audio_entry
-        return add_entry(DATABASE_PATH, mission_uuid, media["original_name"], str(relative_path), media["mime_type"])
+        entry = add_entry(DATABASE_PATH, mission_uuid, media["original_name"], str(relative_path), media["mime_type"])
+        if entry_type == "audio":
+            transcription.queue(DATABASE_PATH, UPLOAD_DIRECTORY, entry["uuid"])
+        return entry
     except Exception:
         absolute_path.unlink(missing_ok=True)
         raise
@@ -163,6 +167,12 @@ def api(environ, start_response, path):
         if not entry or entry["entry_type"] not in ("photo", "audio"):
             return json_response(start_response, "404 Not Found", {"error": "Fichier introuvable."})
         return file_response(start_response, entry)
+    if len(segments) == 5 and segments[:3] == ["api", "v1", "entries"] and segments[4] == "transcribe" and method == "POST":
+        entry = database.get_entry(DATABASE_PATH, segments[3])
+        if not entry or entry["entry_type"] != "audio":
+            return json_response(start_response, "404 Not Found", {"error": "Note vocale introuvable."})
+        transcription.queue(DATABASE_PATH, UPLOAD_DIRECTORY, entry["uuid"])
+        return json_response(start_response, "202 Accepted", {"status": "queued"})
     return json_response(start_response, "404 Not Found", {"error": "Ressource introuvable."})
 
 

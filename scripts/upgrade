@@ -8,9 +8,12 @@ package_root="$(cd "$(dirname "$0")/.." && pwd)"
 ynh_systemctl --service="$app" --action="stop" --log_path="systemd"
 ynh_safe_rm "$install_dir/web"
 ynh_safe_rm "$install_dir/backend"
-mkdir -p "$install_dir/web" "$install_dir/backend" "$data_dir/uploads"
+mkdir -p "$install_dir/web" "$install_dir/backend" "$data_dir/uploads" "$data_dir/models" "$install_dir/bin"
 cp -a "$package_root/static/." "$install_dir/web/"
-cp "$package_root/app.py" "$package_root/database.py" "$install_dir/backend/"
+cp "$package_root/app.py" "$package_root/database.py" "$package_root/transcription.py" "$install_dir/backend/"
+if [ ! -x "$install_dir/bin/whisper-cli" ] || [ ! -f "$data_dir/models/ggml-base.bin" ]; then
+    install_whisper_cpp
+fi
 set_runtime_permissions
 configure_files
 yunohost service add "$app" --description="Main courante et rapports de mission" --log="systemd" || true
