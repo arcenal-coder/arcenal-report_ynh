@@ -16,6 +16,10 @@
 - conversion audio par `ffmpeg`, transcription française en tâche de fond et stockage du texte lié à la note vocale ;
 - suivi d’état dans l’interface et possibilité de relancer une transcription indisponible ou échouée.
 
+## 0.1.2 — 12 octobre 2026
+
+- redirection Nginx explicite du chemin d’application sans barre finale vers `/arcenal-report/`, afin d’éviter une réponse 404 après installation.
+
 ## Principes de déploiement
 
 - Le code applicatif est installé dans `/var/www/arcenal_report` par YunoHost.
