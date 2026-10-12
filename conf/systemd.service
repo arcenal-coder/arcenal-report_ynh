@@ -12,6 +12,7 @@ Environment=MAIN_COURANTE_DB=__DATA_DIR__/arcenal-report.sqlite3
 Environment=MAIN_COURANTE_UPLOADS=__DATA_DIR__/uploads
 Environment=WHISPER_CPP_BINARY=__INSTALL_DIR__/bin/whisper-cli
 Environment=WHISPER_CPP_MODEL=__DATA_DIR__/models/ggml-base.bin
+ExecStartPre=/usr/bin/python3 -c "import database, os; database.initialise(os.environ['MAIN_COURANTE_DB'])"
 ExecStart=/usr/bin/gunicorn --workers 2 --threads 2 --timeout 120 --bind 127.0.0.1:__PORT__ app:application
 Restart=on-failure
 RestartSec=3

@@ -7,6 +7,17 @@ let currentMission;
 const apiBase = new URL('api/v1/', document.baseURI).pathname.replace(/\/$/, '');
 const apiUrl = path => `${apiBase}${path}`;
 
+function locateForWeather() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      position => resolve({latitude: Math.round(position.coords.latitude * 100) / 100, longitude: Math.round(position.coords.longitude * 100) / 100}),
+      () => resolve(null), {timeout:10000, maximumAge:600000, enableHighAccuracy:false}
+    );
+  });
+
+}
+
 function formatTime(timestamp) { return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(timestamp)); }
 function escapeHtml(value) { const node = document.createElement('div'); node.textContent = value; return node.innerHTML; }
 
@@ -139,12 +150,63 @@ async function showMission(uuid) {
   const form = missionView.querySelector('#entry-form');
   const photoForm = missionView.querySelector('#photo-form');
   const audioForm = missionView.querySelector('#audio-form');
-  missionView.querySelector('#add-entry').addEventListener('click', () => { options.hidden = !options.hidden; });
-  missionView.querySelector('#add-text').addEventListener('click', () => { form.hidden = false; options.hidden = true; missionView.querySelector('#entry-content').focus(); });
-  missionView.querySelector('#add-photo').addEventListener('click', () => { photoForm.hidden = false; options.hidden = true; });
-  missionView.querySelector('#add-audio').addEventListener('click', () => { audioForm.hidden = false; options.hidden = true; });
+  missionView.querySelector('#add-text').addEventListener('click', () => { form.hidden = false; missionView.querySelector('#entry-content').focus(); });
+  missionView.querySelector('#add-photo').addEventListener('click', () => { photoForm.hidden = false; });
+  missionView.querySelector('#add-audio').addEventListener('click', () => { audioForm.hidden = false; });
   missionView.querySelector('#cancel-entry').addEventListener('click', () => { form.reset(); form.hidden = true; });
   missionView.querySelector('#cancel-photo').addEventListener('click', () => { photoForm.reset(); photoForm.hidden = true; });
+  const reportPreview = missionView.querySelector('#report-preview');
+  const reportContent = missionView.querySelector('#report-content');
+  const reportError = missionView.querySelector('#report-error');
+  const reportMode = missionView.querySelector('#report-mode');
+  let report;
+  const authorInput = missionView.querySelector('#report-author');
+  authorInput.value = localStorage.getItem('arcenal-report-author') || '';
+  missionView.querySelector('#generate-report').addEventListener('click', async () => {
+    reportError.textContent = '';
+    if (!authorInput.value.trim()) { authorInput.focus(); authorInput.reportValidity(); authorInput.setCustomValidity('Renseignez le nom de l’équipier.'); authorInput.reportValidity(); return; }
+    authorInput.setCustomValidity('');
+    localStorage.setItem('arcenal-report-author', authorInput.value.trim());
+    const generateButton = missionView.querySelector('#generate-report');
+    const weatherStatus = missionView.querySelector('#weather-status');
+    generateButton.disabled = true;
+    try {
+      weatherStatus.textContent = 'Localisation pour la météo…';
+      const location = await locateForWeather();
+      weatherStatus.textContent = location ? 'Récupération des prévisions météo…' : 'Localisation indisponible : le rapport sera généré sans météo.';
+      report = await fetchJson(apiUrl(`/missions/${uuid}/report`), { method: 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({author:authorInput.value.trim(), location}) });
+      reportContent.value = report.content; reportMode.textContent = report.generation_mode || 'Brouillon local'; reportPreview.hidden = false;
+      weatherStatus.textContent = 'Rapport généré. Consultez la rubrique météo du rapport.';
+      reportContent.focus();
+    } catch (exception) { reportError.textContent = exception.message; reportPreview.hidden = false; }
+    finally { generateButton.disabled = false; }
+  });
+  missionView.querySelector('#save-report').addEventListener('click', async () => {
+    reportError.textContent = '';
+    try {
+      report = await fetchJson(apiUrl(`/missions/${uuid}/report`), { method: 'PUT', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ uuid:report?.uuid, content:reportContent.value }) });
+      reportContent.value = report.content;
+    } catch (exception) { reportError.textContent = exception.message; }
+  });
+  missionView.querySelector('#print-report').addEventListener('click', () => window.print());
+  authorInput.addEventListener('input', () => authorInput.setCustomValidity(''));
+  missionView.querySelector('#email-report').addEventListener('click', () => {
+    const subject = `ONYX — Rapport de journée — ${currentMission.reference}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(reportContent.value)}`;
+  });
+  missionView.querySelector('#download-report').addEventListener('click', async () => {
+    const button = missionView.querySelector('#download-report');
+    button.disabled = true; reportError.textContent = '';
+    try {
+      report = await fetchJson(apiUrl(`/missions/${uuid}/report`), { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uuid:report?.uuid, content:reportContent.value}) });
+      const response = await fetch(apiUrl(`/missions/${uuid}/report/docx`));
+      if (!response.ok) throw new Error((await response.json()).error);
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a'); link.href = url; link.download = `rapport-ONYX-${currentMission.reference}.docx`; link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (exception) { reportError.textContent = exception.message; }
+    finally { button.disabled = false; }
+  });
   form.addEventListener('submit', async event => {
     event.preventDefault(); const content = missionView.querySelector('#entry-content').value; const error = missionView.querySelector('#form-error'); error.textContent = '';
     try { await fetchJson(apiUrl(`/missions/${uuid}/entries`), { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ content }) }); await showMission(uuid); }

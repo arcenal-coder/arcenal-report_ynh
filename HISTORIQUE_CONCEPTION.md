@@ -20,6 +20,22 @@
 
 - redirection Nginx explicite du chemin d’application sans barre finale vers `/arcenal-report/`, afin d’éviter une réponse 404 après installation.
 
+## POC rapport local — 12 octobre 2026
+
+- génération locale d’un brouillon de rapport de fin de poste depuis les notes, photos et transcriptions disponibles ;
+- édition et sauvegarde du brouillon dans la base SQLite ;
+- mise en page imprimable pour l’export PDF depuis le navigateur.
+
+## 0.2.0 — 12 octobre 2026
+
+- brouillon éditable avec nom de l’équipier et export Word avec logo ONYX et photos en annexe ;
+- ouverture du client mail avec le contenu du rapport ;
+- collecte météo géolocalisée au moment de la génération, messages indicatifs vent, pluie et orage ;
+- ajout de notes texte, photo et vocal directement accessible ;
+- intégration Hermes prévue, génération IA désactivée ;
+- initialisation et migration SQLite au démarrage du service YunoHost, compilation autonome de Whisper et identité SSO transmise au serveur ;
+- données locales, documents de test et fichiers déposés exclus de la publication GitHub.
+
 ## Principes de déploiement
 
 - Le code applicatif est installé dans `/var/www/arcenal_report` par YunoHost.

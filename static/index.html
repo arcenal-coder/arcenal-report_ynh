@@ -28,8 +28,8 @@
       <div class="section-heading"><h2 id="entries-title">Main courante</h2><span>En cours</span></div>
       <div id="entries" class="entries"></div>
     </section>
-    <button class="primary-button" id="add-entry" type="button">＋ Ajouter</button>
-    <div id="add-options" class="add-options" hidden>
+    <p class="add-note-label">Ajouter une note</p>
+    <div id="add-options" class="add-options">
       <button type="button" id="add-text">✍ <span>Texte</span></button>
       <button type="button" id="add-photo">📷 <span>Photo</span></button>
       <button type="button" id="add-audio">🎙 <span>Vocal</span></button>
@@ -63,7 +63,20 @@
       <div class="form-actions"><button type="button" class="secondary-button" id="cancel-audio">Annuler</button><button type="submit" class="primary-button" id="save-audio" disabled>Enregistrer</button></div>
       <p id="audio-error" class="form-error" role="alert"></p>
     </form>
-    <button class="report-button" type="button" disabled>Générer le rapport <small>Disponible prochainement</small></button>
+    <label class="author-label" for="report-author">Équipier qui génère le rapport</label>
+    <input id="report-author" type="text" maxlength="120" autocomplete="name" placeholder="Prénom et nom">
+    <p class="weather-help">La météo du jour est ajoutée automatiquement avec votre autorisation de localisation. La position approximative est transmise à Open-Meteo. Les messages vent, pluie et orage sont indicatifs.</p>
+    <p id="weather-status" role="status" aria-live="polite"></p>
+    <button class="report-button" id="generate-report" type="button">Générer le rapport de fin de journée <small>Brouillon éditable</small></button>
+    <section id="report-preview" class="report-preview" hidden>
+      <header class="onyx-report-header"><img src="onyx-logo.png" alt="ONYX"><p>Rapport de fin de journée</p></header>
+      <div class="section-heading"><h2>Proposition de rapport</h2><span id="report-mode">Brouillon local</span></div>
+      <textarea id="report-content" maxlength="20000" aria-label="Contenu du rapport"></textarea>
+      <div class="form-actions"><button class="secondary-button" id="print-report" type="button">Imprimer / PDF</button><button class="primary-button" id="save-report" type="button">Enregistrer le brouillon</button></div>
+      <button class="primary-button" id="download-report" type="button">Télécharger Word modifiable</button>
+      <button class="secondary-button" id="email-report" type="button">Exporter par mail</button>
+      <p id="report-error" class="form-error" role="alert"></p>
+    </section>
   </template>
   <script src="app.js"></script>
 </body>

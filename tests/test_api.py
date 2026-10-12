@@ -126,6 +126,35 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(payload['status'], 'queued')
         self.assertEqual(calls[0][2], entry['uuid'])
 
+    def test_generates_and_saves_an_editable_end_of_shift_report(self):
+        mission_uuid = database.list_missions(app.DATABASE_PATH)[0]['uuid']
+        database.add_text_entry(app.DATABASE_PATH, mission_uuid, 'Zone sécurisée et contrôle terminé.')
+        status, report = self.request('POST', f'/api/v1/missions/{mission_uuid}/report', json.dumps({'author': 'Jean Dupont'}).encode())
+        self.assertEqual(status, '201 Created')
+        self.assertIn('ONYX — RAPPORT DE FIN DE JOURNÉE', report['content'])
+        self.assertIn('Zone sécurisée', report['content'])
+        self.assertIn('Équipier : Jean Dupont', report['content'])
+        self.assertNotIn('SYNTHÈSE OPÉRATIONNELLE', report['content'])
+        self.assertNotIn('ÉLÉMENTS À SUIVRE', report['content'])
+        status, saved = self.request(
+            'PUT', f'/api/v1/missions/{mission_uuid}/report',
+            json.dumps({'uuid': report['uuid'], 'content': 'Rapport relu et validé.'}).encode(),
+        )
+        self.assertEqual(status, '200 OK')
+        self.assertEqual(saved['content'], 'Rapport relu et validé.')
+
+    def test_word_export_contains_saved_edits(self):
+        from zipfile import ZipFile
+        mission_uuid = database.list_missions(app.DATABASE_PATH)[0]['uuid']
+        database.save_report(app.DATABASE_PATH, mission_uuid, 'Équipier : Jean Dupont\nTexte corrigé pour le rapport.')
+        status, headers, content = self.request_raw('GET', f'/api/v1/missions/{mission_uuid}/report/docx')
+        self.assertEqual(status, '200 OK')
+        self.assertIn('wordprocessingml.document', headers['Content-Type'])
+        with ZipFile(BytesIO(content)) as document:
+            xml = document.read('word/document.xml').decode('utf-8')
+        self.assertIn('Jean Dupont', xml)
+        self.assertIn('Texte corrigé pour le rapport.', xml)
+
     def test_yunohost_package_uses_relative_frontend_assets(self):
         index = (Path(app.ROOT) / 'static' / 'index.html').read_text(encoding='utf-8')
         frontend = (Path(app.ROOT) / 'static' / 'app.js').read_text(encoding='utf-8')

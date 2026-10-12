@@ -33,6 +33,14 @@ python3 -m unittest discover -s tests -v
 bash -n scripts/*
 ```
 
+## POC local exploitable
+
+Lancer `python3 app.py`, puis ouvrir <http://127.0.0.1:8080>. Le POC permet de créer des notes, d’ajouter une photo ou un enregistrement vocal, puis de générer un brouillon de rapport de fin de poste. Le brouillon est éditable, sauvegardé dans SQLite et imprimable en PDF depuis le navigateur.
+
+Le bouton **Télécharger Word modifiable** sauvegarde les corrections et exporte un `.docx` ONYX avec les photos en annexe. Le moteur de génération IA est prévu pour une intégration ultérieure et reste désactivé. Pour l’export local, le runtime Python doit disposer de `python-docx` et `Pillow` ; le paquet YunoHost déclare ces dépendances.
+
+La génération du rapport demande la localisation du navigateur pour ajouter les prévisions du jour via Open-Meteo (coordonnées arrondies à deux décimales). La date météo est indiquée séparément de la date de mission. Les messages du POC sont calculés selon les seuils vent 50 km/h ou rafales 60 km/h, précipitations 1 mm/jour (fortes 10 mm/jour), et codes d’orage. Ce ne sont pas des bulletins de vigilance officiels. Refus de localisation ou panne réseau : le rapport reste générable et indique l’absence de météo. Les conditions de service du fournisseur devront être validées avant exploitation commerciale.
+
 ## API disponible
 
 - `GET /api/v1/missions`

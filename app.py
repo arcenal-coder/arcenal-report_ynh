@@ -9,6 +9,9 @@ from wsgiref.simple_server import make_server
 
 import database
 import transcription
+import ai_reporting
+import report_document
+import weather
 
 
 ROOT = Path(__file__).parent
@@ -30,7 +33,7 @@ def read_json(environ):
         length = int(environ.get("CONTENT_LENGTH") or 0)
     except ValueError:
         length = 0
-    if length > 10_000:
+    if length > 100_000:
         return None
     try:
         return json.loads(environ["wsgi.input"].read(length).decode("utf-8"))
@@ -162,6 +165,51 @@ def api(environ, start_response, path):
         if error:
             return json_response(start_response, status, {"error": error})
         return json_response(start_response, "201 Created", save_media(mission_uuid, audio, "audio"))
+    if len(segments) == 5 and segments[:3] == ["api", "v1", "missions"] and segments[4] == "report":
+        mission_uuid = segments[3]
+        mission = database.get_mission(DATABASE_PATH, mission_uuid)
+        if not mission:
+            return json_response(start_response, "404 Not Found", {"error": "Mission introuvable."})
+        if method == "GET":
+            report = database.get_latest_report(DATABASE_PATH, mission_uuid)
+            return json_response(start_response, "200 OK", {"report": report})
+        if method == "POST":
+            payload = read_json(environ)
+            author = (environ.get('HTTP_REMOTE_USER') or environ.get('HTTP_AUTH_USER') or (payload.get('author', '') if isinstance(payload, dict) else ''))
+            if not isinstance(author, str) or len(author.strip()) > 120:
+                return json_response(start_response, '400 Bad Request', {'error': 'Nom d’équipier invalide.'})
+            content = ai_reporting.fallback_report(mission, ai_reporting.collect_facts(mission, database.list_entries(DATABASE_PATH, mission_uuid)), author.strip())
+            location = payload.get('location') if isinstance(payload, dict) else None
+            if location is not None:
+                try:
+                    snapshot = weather.fetch_forecast(location)
+                    content += '\n\n' + '\n'.join(weather.report_lines(snapshot))
+                except (ValueError, OSError, KeyError, IndexError, TypeError):
+                    content += '\n\nMÉTÉO LOCALE\nPrévisions indisponibles lors de la génération. Aucune évaluation du vent, de la pluie ou des orages n’a pu être effectuée.'
+            else:
+                content += '\n\nMÉTÉO LOCALE\nLocalisation refusée ou indisponible. Les conditions météo n’ont pas pu être récupérées.'
+            generation_mode = 'Brouillon éditable'
+            report = database.save_report(DATABASE_PATH, mission_uuid, content)
+            report["generation_mode"] = generation_mode
+            return json_response(start_response, "201 Created", report)
+        if method == "PUT":
+            payload = read_json(environ)
+            content = payload.get("content", "").strip() if isinstance(payload, dict) else ""
+            report_uuid = payload.get("uuid") if isinstance(payload, dict) else None
+            if not content or len(content) > 20_000:
+                return json_response(start_response, "400 Bad Request", {"error": "Le rapport doit contenir entre 1 et 20 000 caractères."})
+            return json_response(start_response, "200 OK", database.save_report(DATABASE_PATH, mission_uuid, content, report_uuid))
+    if len(segments) == 6 and segments[:3] == ['api', 'v1', 'missions'] and segments[4:] == ['report', 'docx'] and method == 'GET':
+        mission = database.get_mission(DATABASE_PATH, segments[3])
+        report = database.get_latest_report(DATABASE_PATH, segments[3]) if mission else None
+        if not report:
+            return json_response(start_response, '404 Not Found', {'error': 'Générez et enregistrez le rapport avant de le télécharger.'})
+        try:
+            content = report_document.build_docx(mission, report, database.list_entries(DATABASE_PATH, segments[3]), UPLOAD_DIRECTORY)
+        except ImportError:
+            return json_response(start_response, '503 Service Unavailable', {'error': 'Le module python-docx doit être installé pour exporter le rapport Word.'})
+        start_response('200 OK', [('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'), ('Content-Length', str(len(content))), ('Content-Disposition', 'attachment; filename="rapport-onyx.docx"'), ('Cache-Control', 'no-store')])
+        return [content]
     if len(segments) == 5 and segments[:3] == ["api", "v1", "entries"] and segments[4] == "file" and method == "GET":
         entry = database.get_entry(DATABASE_PATH, segments[3])
         if not entry or entry["entry_type"] not in ("photo", "audio"):
@@ -194,5 +242,6 @@ def application(environ, start_response):
 
 if __name__ == "__main__":
     database.initialise(DATABASE_PATH)
-    print("Main courante disponible sur http://127.0.0.1:8080")
-    make_server("127.0.0.1", 8080, application).serve_forever()
+    port = int(os.environ.get('ARCENAL_PORT', '8080'))
+    print(f"ARCenal REPORT disponible sur http://127.0.0.1:{port}", flush=True)
+    make_server("127.0.0.1", port, application).serve_forever()

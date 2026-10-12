@@ -27,6 +27,15 @@ def initialise(database_path):
 
         """)
         ensure_entries_table(connection)
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS reports (
+                uuid TEXT PRIMARY KEY,
+                mission_uuid TEXT NOT NULL REFERENCES missions(uuid) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
         has_missions = connection.execute("SELECT 1 FROM missions LIMIT 1").fetchone()
         if not has_missions:
             seed(connection)
@@ -135,6 +144,33 @@ def update_transcription(database_path, entry_uuid, status, transcript=None, err
             "UPDATE entries SET transcription_status = ?, transcript = ?, transcription_error = ? WHERE uuid = ?",
             (status, transcript, error, entry_uuid),
         )
+
+
+def get_latest_report(database_path, mission_uuid):
+    with connect(database_path) as connection:
+        row = connection.execute(
+            "SELECT * FROM reports WHERE mission_uuid = ? ORDER BY updated_at DESC LIMIT 1", (mission_uuid,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def save_report(database_path, mission_uuid, content, report_uuid=None):
+    timestamp = datetime.now(ZoneInfo("Europe/Paris")).isoformat()
+    with connect(database_path) as connection:
+        if report_uuid:
+            connection.execute(
+                "UPDATE reports SET content = ?, updated_at = ? WHERE uuid = ? AND mission_uuid = ?",
+                (content, timestamp, report_uuid, mission_uuid),
+            )
+            row = connection.execute("SELECT * FROM reports WHERE uuid = ?", (report_uuid,)).fetchone()
+            if row:
+                return dict(row)
+        report_uuid = str(uuid4())
+        connection.execute(
+            "INSERT INTO reports (uuid, mission_uuid, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            (report_uuid, mission_uuid, content, timestamp, timestamp),
+        )
+        return dict(connection.execute("SELECT * FROM reports WHERE uuid = ?", (report_uuid,)).fetchone())
 
 
 def add_text_entry(database_path, mission_uuid, content):

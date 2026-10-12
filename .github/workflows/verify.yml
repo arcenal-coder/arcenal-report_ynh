@@ -18,9 +18,11 @@ jobs:
           python-version: '3.11'
       - name: Vérifier le code et les scripts
         run: |
-          python -m py_compile app.py database.py
+          python -m pip install python-docx Pillow
+          python -m py_compile app.py database.py transcription.py ai_reporting.py report_document.py weather.py
           python -m unittest discover -s tests -v
           bash -n scripts/*
+          node --check static/app.js
       - name: Exécuter le linter YunoHost
         continue-on-error: true
         run: |

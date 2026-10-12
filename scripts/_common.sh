@@ -23,7 +23,7 @@ install_whisper_cpp() {
     local whisper_source="$install_dir/whisper.cpp"
     mkdir -p "$install_dir/bin" "$data_dir/models"
     git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git "$whisper_source"
-    cmake -S "$whisper_source" -B "$whisper_source/build"
+    cmake -S "$whisper_source" -B "$whisper_source/build" -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
     cmake --build "$whisper_source/build" --target whisper-cli --config Release -j "$(nproc)"
     cp "$whisper_source/build/bin/whisper-cli" "$install_dir/bin/whisper-cli"
     curl --fail --location --output "$data_dir/models/ggml-base.bin" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
