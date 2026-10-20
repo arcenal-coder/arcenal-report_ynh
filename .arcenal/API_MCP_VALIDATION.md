@@ -1,7 +1,8 @@
 # Candidate 0.3.0~ynh1 — validation locale API / MCP
 
-Date : 20 octobre 2026. Autorisation : développement dans ce projet ; aucun push,
-tag, déploiement ni changement des accès du serveur réel effectué.
+Date : 20 octobre 2026. État à la fin du développement local, avant publication.
+La publication GitHub et Preview effectuée ensuite est tracée séparément dans
+`DELIVERY_REPORT.md`. Aucun changement des accès du serveur réel effectué.
 
 ## Réalisé
 

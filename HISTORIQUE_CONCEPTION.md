@@ -50,3 +50,19 @@
 - Les données de mission et les fichiers déposés restent séparés dans `/var/lib/arcenal_report`.
 - Une mise à jour remplace uniquement le code ; elle conserve les données métier et les pièces jointes.
 - Le paquet est prévu pour le catalogue privé ARCenal Store ; il n’est pas publié dans le catalogue communautaire YunoHost.
+
+## 20 octobre 2026 — Report 0.3.0 Preview : API, MCP et validation
+
+- Serveur MCP Streamable HTTP et API REST machine en lecture seule, avec droits
+  explicites par mission, portées, expiration, révocation et limitation de débit.
+- Écran d'administration YunoHost, URL publique et jeton affiché une seule fois.
+- Client de correction Hermes configurable, confirmations d'envoi et
+  d'application, puis validation séparée du rapport. Identité Report centrale
+  encore à déclarer avant activation réelle.
+- Historique figé des rapports et reprise motivée en copie modifiable.
+- 63 tests applicatifs, interopérabilité client MCP officiel et recette UI avec
+  SSO/Hermes simulés ; 25 tests catalogue et CI GitHub réussis.
+- Version `0.3.0~ynh1`, tag `v0.3.0`, SHA applicatif
+  `1535cd9866b6753a9bf335698b9c399b5ff1e5cb`, publication Preview et miroir
+  catalogue vérifiés. Aucun changement stable. Installation YunoHost confiée à
+  Damien à sa demande, NON EXÉCUTÉE par l'agent.

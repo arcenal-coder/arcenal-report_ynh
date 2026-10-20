@@ -4,18 +4,40 @@ Date : 20 octobre 2026. Publication GitHub et ARCenal Store demandée explicitem
 par Damien après développement. La cible reste Preview, sans promotion stable.
 
 - Source : https://github.com/arcenal-coder/arcenal-report_ynh
-- Branche : `preview` ; version `0.3.0~ynh1` ; tag prévu `v0.3.0`.
-- Commit proposé : `feat: add scoped MCP and API integrations with report validation`.
+- Branche : `preview` ; version `0.3.0~ynh1` ; tag annoté publié `v0.3.0`.
+- Commit applicatif : `1535cd9866b6753a9bf335698b9c399b5ff1e5cb`,
+  `feat: add scoped MCP and API integrations with report validation`.
 - Contrôles locaux renouvelés : Ruff ciblé, syntaxe JavaScript, compilation
   Python, syntaxe Bash, 63 exécutions unittest et diff RÉUSSIS.
 - Preuves : `.arcenal/API_MCP_VALIDATION.md` et `INTEGRATION_GUIDE.md`.
 - Catalogue cible : `arcenal-systeme-catalogue`, entrée `arcenal_report`,
   préparation development puis promotion officielle ciblée vers Preview,
   branche source `preview` et SHA exact de la candidate.
-- Publication GitHub : EN COURS ; SHA à consigner après commit et vérification.
-- Catalogue / Store Preview : EN COURS ; résolution publique à vérifier.
+- Publication GitHub : RÉUSSIE, push atomique de `preview` et `v0.3.0`.
+  Tag annoté `5f60aa601eb901beadca44cc72458024519516cc`, source applicative
+  `1535cd9866b6753a9bf335698b9c399b5ff1e5cb`. Préversion publiée :
+  https://github.com/arcenal-coder/arcenal-report_ynh/releases/tag/v0.3.0.
+- CI applicative : RÉUSSIE, run
+  https://github.com/arcenal-coder/arcenal-report_ynh/actions/runs/39462209877.
+- Préparation catalogue : PR nº30 fusionnée au commit
+  `8ce2aea527a0c0c2e35016dec898fd5fa3400fb7`,
+  https://github.com/arcenal-coder/arcenal-systeme-catalogue/pull/30.
+  25 tests catalogue réussis, dont cohérence du paquet et promotion sélective.
+- Promotion officielle Report uniquement development → preview : RÉUSSIE,
+  workflow nº60, https://github.com/arcenal-coder/arcenal-systeme-catalogue/actions/runs/39462590727.
+- Catalogue / Store Preview : RÉUSSI, commit catalogue
+  `8c64aec78e69f819a221a052a2c42363f8ee1306`. Le flux canonique
+  `main/preview/v3/apps.json` résout `arcenal_report` en `0.3.0~ynh1`, branche
+  `preview`, révision `1535cd9866b6753a9bf335698b9c399b5ff1e5cb`, minimum
+  YunoHost 12.1.17 et architectures amd64/arm64. Les fichiers stable n'ont pas
+  changé et les autres versions Preview sont conservées.
+- Miroir public du catalogue : publication RÉUSSIE, workflow nº280,
+  https://github.com/arcenal-coder/arcenal-systeme-catalogue/actions/runs/39462624516.
 - Installation et cycle de vie YunoHost réels : NON_EXÉCUTÉS. Aucune session
   d'administration YunoHost authentifiée ni sauvegarde serveur n'a été vérifiée.
+  Damien a explicitement choisi d'effectuer lui-même l'installation. L'accès
+  navigateur contrôlé affichait la page de connexion ; aucune mise à niveau,
+  sauvegarde, modification de permission ou création de jeton réelle exécutée.
 - Connexion au Hermes installé : NON_EXÉCUTÉE. Nécessite une identité Report
   dédiée côté ARCenal Agent ; le MCP et le client API ne créent pas ces droits.
 - Retour arrière : sauvegarde complète avant upgrade ; restauration conjointe
