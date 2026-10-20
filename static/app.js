@@ -38,8 +38,9 @@ function renderEntry(entry) {
     const status = entry.transcription_status || 'not_requested';
     const messages = { queued:'Transcription en attente…', processing:'Transcription en cours…', unavailable:'Transcription locale à configurer.', failed:'Transcription à relancer.' };
     const transcript = entry.transcript ? `<p class="transcript">${escapeHtml(entry.transcript)}</p>` : '';
-    const retry = status === 'failed' || status === 'unavailable' ? `<button class="transcribe-button" type="button" data-transcribe="${entry.uuid}">Relancer la transcription</button>` : '';
-    return `<article class="entry"><time>${formatTime(entry.occurred_at)}</time><div><span class="entry-label">🎙 Note vocale</span><audio class="entry-audio" controls preload="metadata" src="${apiUrl(`/entries/${entry.uuid}/file`)}"></audio><p class="transcription-status ${status}">${status === 'completed' ? 'Transcription terminée' : messages[status] || ''}</p>${transcript}${retry}</div></article>`;
+    const retry = ['failed', 'unavailable', 'not_requested'].includes(status) ? `<button class="transcribe-button" type="button" data-transcribe="${entry.uuid}">${status === 'not_requested' ? 'Transcrire cet enregistrement' : 'Relancer la transcription'}</button>` : '';
+    const diagnostic = entry.transcription_error ? `<p class="form-error" role="alert">${escapeHtml(entry.transcription_error)}</p>` : '';
+    return `<article class="entry"><time>${formatTime(entry.occurred_at)}</time><div><span class="entry-label">🎙 Note vocale</span><audio class="entry-audio" controls preload="metadata" src="${apiUrl(`/entries/${entry.uuid}/file`)}"></audio><p class="transcription-status ${status}">${status === 'completed' ? 'Transcription terminée' : messages[status] || ''}</p>${diagnostic}${transcript}${retry}</div></article>`;
   }
   return `<article class="entry"><time>${formatTime(entry.occurred_at)}</time><p>${escapeHtml(entry.content)}</p></article>`;
 }
@@ -48,8 +49,13 @@ function renderEntries(entries) {
   document.querySelector('#entries').innerHTML = entries.length ? entries.map(renderEntry).join('') : '<p>Aucune information enregistrée.</p>';
   document.querySelectorAll('[data-transcribe]').forEach(button => button.addEventListener('click', async () => {
     button.disabled = true;
-    await fetchJson(apiUrl(`/entries/${button.dataset.transcribe}/transcribe`), { method: 'POST' });
-    showMission(currentMission.uuid);
+    try {
+      await fetchJson(apiUrl(`/entries/${button.dataset.transcribe}/transcribe`), { method: 'POST' });
+      await showMission(currentMission.uuid);
+    } catch (error) {
+      button.disabled = false;
+      const message = document.createElement('p'); message.className = 'form-error'; message.setAttribute('role', 'alert'); message.textContent = error.message; button.after(message);
+    }
   }));
 }
 

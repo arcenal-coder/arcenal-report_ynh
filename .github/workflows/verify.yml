@@ -3,7 +3,7 @@ name: Vérifier le paquet ARCenal REPORT
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [preview]
 
 permissions:
   contents: read

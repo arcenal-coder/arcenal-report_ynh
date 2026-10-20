@@ -36,6 +36,14 @@
 - initialisation et migration SQLite au démarrage du service YunoHost, compilation autonome de Whisper et identité SSO transmise au serveur ;
 - données locales, documents de test et fichiers déposés exclus de la publication GitHub.
 
+## 0.2.1 — 20 octobre 2026 — correctif préparé localement
+
+- attribution du binaire Whisper et de son dossier au compte de l’application avant exécution ;
+- contrôle des exécutables et de la lecture du modèle avant conversion ;
+- remontée dans l’interface des erreurs de conversion, de transcription et de permission ;
+- relance possible des anciens enregistrements sans transcription ;
+- tests de régression des permissions du paquet et du traitement audio ; recette sur serveur à confirmer.
+
 ## Principes de déploiement
 
 - Le code applicatif est installé dans `/var/www/arcenal_report` par YunoHost.
