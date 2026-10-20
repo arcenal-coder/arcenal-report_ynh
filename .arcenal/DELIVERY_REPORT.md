@@ -7,12 +7,27 @@ Installation sur son serveur laissée à Damien, sans déploiement automatique.
   référence facultative, date), contrôle des doublons et ouverture pour saisie.
   Correction de la confusion Basic SSO/Bearer machine et diagnostic des erreurs
   de chargement. Aucune connexion Dolibarr ajoutée.
-- Version candidate : `0.3.1~ynh1`, branche `preview`, tag prévu `v0.3.1`.
+- Version publiée : `0.3.1~ynh1`, branche `preview`, tag annoté `v0.3.1`.
 - Preuves locales : `.arcenal/MANUAL_MISSIONS.md` ; 70 exécutions unittest,
   recette navigateur synthétique et vérifications de syntaxe/diff réussies.
 - Compatibilité : schéma des missions inchangé, aucune suppression ; les accès
   MCP existants ne gagnent pas automatiquement de nouvelles missions.
-- GitHub / Store : publication en cours, source et résultats à compléter.
+- Source publiée : `271eaf2d8c756faab75b97743059fc671e290328` ; tag objet
+  `c2402560717b591a3c6b13210700438db9bf83cd`. Préversion GitHub :
+  https://github.com/arcenal-coder/arcenal-report_ynh/releases/tag/v0.3.1.
+- CI applicative : RÉUSSIE,
+  https://github.com/arcenal-coder/arcenal-report_ynh/actions/runs/39465416675.
+- Catalogue : 25 tests réussis ; PR nº31 fusionnée au commit
+  `65c7ebc36318a035f57ff65989000652adf0e4ad`,
+  https://github.com/arcenal-coder/arcenal-systeme-catalogue/pull/31.
+  CI catalogue RÉUSSIE, run `39465542497` (PR), `39465611209` (main).
+- Promotion officielle Report uniquement : RÉUSSIE, workflow nº61,
+  https://github.com/arcenal-coder/arcenal-systeme-catalogue/actions/runs/39465616010.
+  Commit catalogue final `4098c974409dc0b7f5669201e95c3f44f75539cb`.
+- Flux canonique `main/preview/v3/apps.json` vérifié : `arcenal_report` résout
+  `0.3.1~ynh1`, branche `preview`, SHA source `271eaf2…`. Stable inchangé.
+- Miroir public : publication nº282 RÉUSSIE,
+  https://github.com/arcenal-coder/arcenal-systeme-catalogue/actions/runs/39465662729.
 - Installation et cycle de vie YunoHost réels : NON_EXÉCUTÉS. Sauvegarder avant
   mise à jour puis vérifier création, note, rechargement et accès MCP admin.
 - Retour arrière : restaurer ensemble code et données depuis une sauvegarde

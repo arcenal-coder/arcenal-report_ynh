@@ -39,4 +39,6 @@ Installation, recette et données réelles YunoHost : non vérifiées à ce stad
   Une création manuelle ne modifie pas les périmètres des jetons MCP existants.
 - Revue séparée du diff : création paramétrée sans migration de schéma,
   échappement des libellés, aucune connexion Dolibarr et aucune suppression.
-- Diffusion de ce lot : non publiée ; aucune installation sur le serveur.
+- Diffusion de ce lot : publiée en 0.3.1 Preview après confirmation du
+  propriétaire ; détails et révision exacte dans `DELIVERY_REPORT.md`.
+  Aucune installation sur le serveur réalisée par l'agent.
