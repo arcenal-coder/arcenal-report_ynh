@@ -166,8 +166,61 @@ async function showMission(uuid) {
   const reportError = missionView.querySelector('#report-error');
   const reportMode = missionView.querySelector('#report-mode');
   let report;
+  let hermesAvailable = false;
+  let hermesProposal;
   const authorInput = missionView.querySelector('#report-author');
   authorInput.value = localStorage.getItem('arcenal-report-author') || '';
+  const validationStatus = missionView.querySelector('#report-validation-status');
+  function displayReport(value) {
+    report = value;
+    const validated = report.status === 'validated';
+    reportContent.value = report.content;
+    reportContent.readOnly = validated;
+    reportMode.textContent = validated ? `Version ${report.validation.version} validée` : 'Brouillon modifiable';
+    validationStatus.textContent = validated
+      ? `Validé par ${report.validation.validated_by} le ${new Date(report.validation.validated_at).toLocaleString('fr-FR')}. Consultation figée.${report.validation.identity_source === 'local_declared' ? ' Identité déclarative — POC local.' : ''}`
+      : `Relisez et enregistrez vos corrections avant de valider. ${hermesAvailable ? 'Correction avec Hermes disponible sur demande.' : 'Aucune connexion Hermes autorisée sur cette mission.'}`;
+    missionView.querySelector('#save-report').hidden = validated;
+    missionView.querySelector('#validate-report').hidden = validated;
+    missionView.querySelector('#reopen-report').hidden = !validated;
+    missionView.querySelector('#hermes-corrections').hidden = validated || !hermesAvailable;
+    missionView.querySelector('#hermes-proposal-section').hidden = true;
+    hermesProposal = null;
+    reportPreview.hidden = false;
+  }
+  async function persistDraft() {
+    if (report?.status === 'validated') return;
+    displayReport(await fetchJson(apiUrl(`/missions/${uuid}/report`), {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({uuid:report?.uuid, content:reportContent.value, expected_updated_at:report?.updated_at})
+    }));
+  }
+  async function loadHistory() {
+    const { versions } = await fetchJson(apiUrl(`/missions/${uuid}/report/versions`));
+    const container = missionView.querySelector('#report-versions');
+    container.replaceChildren();
+    if (!versions.length) { container.textContent = 'Aucun rapport validé.'; return; }
+    versions.forEach(version => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'secondary-button';
+      button.textContent = `Consulter v${version.version} — ${version.validated_by} — ${new Date(version.validated_at).toLocaleString('fr-FR')}`;
+      button.addEventListener('click', async () => {
+        reportError.textContent = '';
+        if (report?.status === 'draft' && reportContent.value !== report.content && !window.confirm('Les corrections non enregistrées seront perdues. Consulter cette version ?')) return;
+        try {
+          const saved = await fetchJson(apiUrl(`/missions/${uuid}/report/versions/${version.uuid}`));
+          displayReport({...saved, uuid:saved.report_uuid, status:'validated', validation:{...version}});
+        } catch (error) { reportError.textContent = error.message; }
+      });
+      container.append(button);
+    });
+  }
+  const latest = await fetchJson(apiUrl(`/missions/${uuid}/report`));
+  try { hermesAvailable = (await fetchJson(apiUrl(`/missions/${uuid}/report/assist`))).available; }
+  catch { hermesAvailable = false; }
+  if (hermesAvailable) missionView.querySelector('#agent-unavailable').textContent = 'Correction Hermes configurée pour cette mission. Chaque envoi et chaque application de correction nécessitent votre confirmation. Le MCP reste une connexion distincte en lecture seule.';
+  if (latest.report) displayReport(latest.report);
+  await loadHistory();
   missionView.querySelector('#generate-report').addEventListener('click', async () => {
     reportError.textContent = '';
     if (!authorInput.value.trim()) { authorInput.focus(); authorInput.reportValidity(); authorInput.setCustomValidity('Renseignez le nom de l’équipier.'); authorInput.reportValidity(); return; }
@@ -181,7 +234,7 @@ async function showMission(uuid) {
       const location = await locateForWeather();
       weatherStatus.textContent = location ? 'Récupération des prévisions météo…' : 'Localisation indisponible : le rapport sera généré sans météo.';
       report = await fetchJson(apiUrl(`/missions/${uuid}/report`), { method: 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({author:authorInput.value.trim(), location}) });
-      reportContent.value = report.content; reportMode.textContent = report.generation_mode || 'Brouillon local'; reportPreview.hidden = false;
+      displayReport(report);
       weatherStatus.textContent = 'Rapport généré. Consultez la rubrique météo du rapport.';
       reportContent.focus();
     } catch (exception) { reportError.textContent = exception.message; reportPreview.hidden = false; }
@@ -190,11 +243,68 @@ async function showMission(uuid) {
   missionView.querySelector('#save-report').addEventListener('click', async () => {
     reportError.textContent = '';
     try {
-      report = await fetchJson(apiUrl(`/missions/${uuid}/report`), { method: 'PUT', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ uuid:report?.uuid, content:reportContent.value }) });
-      reportContent.value = report.content;
+      await persistDraft();
+      validationStatus.textContent = 'Brouillon enregistré. Relisez-le avant validation.';
     } catch (exception) { reportError.textContent = exception.message; }
   });
+  missionView.querySelector('#validate-report').addEventListener('click', async () => {
+    reportError.textContent = '';
+    if (!report || report.status === 'validated') return;
+    if (!authorInput.value.trim()) { reportError.textContent = 'Renseignez le nom de l’équipier qui valide.'; authorInput.focus(); return; }
+    if (reportContent.value !== report.content) { reportError.textContent = 'Enregistrez vos corrections, puis relisez le texte avant de valider.'; return; }
+    if (!window.confirm(`Valider le rapport de la mission ${currentMission.reference} au nom de ${authorInput.value.trim()} (ou de votre identité SSO) ? Le texte affiché sera figé et archivé. Toute correction créera ensuite une nouvelle version. Aucun envoi au client.`)) return;
+    const button = missionView.querySelector('#validate-report'); button.disabled = true;
+    try {
+      displayReport(await fetchJson(apiUrl(`/missions/${uuid}/report/validate`), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({uuid:report.uuid, content:report.content, expected_updated_at:report.updated_at,
+          author:authorInput.value.trim(), confirmed:true})
+      }));
+      await loadHistory();
+    } catch (error) { reportError.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+  missionView.querySelector('#reopen-report').addEventListener('click', async () => {
+    reportError.textContent = '';
+    if (!report?.validation) return;
+    const reason = window.prompt(`Motif de reprise de la version ${report.validation.version} (500 caractères maximum). L’original restera inchangé.`);
+    if (reason === null) return;
+    try {
+      displayReport(await fetchJson(apiUrl(`/missions/${uuid}/report/versions/${report.validation.uuid}/reopen`), {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({reason, confirmed:true})
+      }));
+      reportContent.focus();
+    } catch (error) { reportError.textContent = error.message; }
+  });
   missionView.querySelector('#print-report').addEventListener('click', () => window.print());
+  missionView.querySelector('#hermes-request').addEventListener('click', async () => {
+    reportError.textContent = '';
+    const instruction = missionView.querySelector('#hermes-instruction').value.trim();
+    if (!report || report.status !== 'draft' || !instruction) { reportError.textContent = 'Ouvrez un brouillon et précisez la correction souhaitée.'; return; }
+    if (reportContent.value !== report.content) { reportError.textContent = 'Enregistrez vos corrections avant de demander une proposition.'; return; }
+    if (!window.confirm(`Transmettre le brouillon de ${currentMission.reference} et votre demande à l’agent Report de Hermes, avec votre identité connectée ? Le fournisseur IA configuré côté Hermes traitera ce texte. Aucun fichier audio/photo ne sera envoyé.`)) return;
+    const button = missionView.querySelector('#hermes-request'); button.disabled = true;
+    const status = missionView.querySelector('#hermes-status'); status.textContent = 'Proposition en cours… Le brouillon reste inchangé.';
+    const source = {...report};
+    try {
+      const proposal = await fetchJson(apiUrl(`/missions/${uuid}/report/assist`), {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uuid:source.uuid, expected_updated_at:source.updated_at, instruction, confirmed:true})});
+      if (report?.uuid !== source.uuid || report.updated_at !== source.updated_at || reportContent.value !== source.content) throw new Error('Le brouillon affiché a changé. Redemandez une proposition.');
+      hermesProposal = {...proposal, sourceContent:source.content};
+      missionView.querySelector('#hermes-proposal').value = proposal.content;
+      missionView.querySelector('#hermes-proposal-section').hidden = false;
+      status.textContent = 'Proposition reçue : relisez-la avant de l’appliquer. Elle ne vaut pas validation technique.';
+    } catch (error) { reportError.textContent = error.message; status.textContent = 'Aucune correction appliquée.'; }
+    finally { button.disabled = false; }
+  });
+  missionView.querySelector('#hermes-apply').addEventListener('click', async () => {
+    reportError.textContent = '';
+    if (!hermesProposal || report?.status !== 'draft' || report.uuid !== hermesProposal.uuid || report.updated_at !== hermesProposal.expected_updated_at || reportContent.value !== hermesProposal.sourceContent) { reportError.textContent = 'Brouillon modifié : redemandez une proposition.'; return; }
+    if (!window.confirm('Remplacer le texte du brouillon par la proposition affichée ? Le rapport restera à relire et à valider séparément.')) return;
+    try {
+      displayReport(await fetchJson(apiUrl(`/missions/${uuid}/report`), {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uuid:hermesProposal.uuid, content:hermesProposal.content, expected_updated_at:hermesProposal.expected_updated_at})}));
+      missionView.querySelector('#hermes-status').textContent = 'Correction enregistrée dans le brouillon. Vous pouvez demander une autre correction ou relire et valider.';
+    } catch (error) { reportError.textContent = error.message; }
+  });
   authorInput.addEventListener('input', () => authorInput.setCustomValidity(''));
   missionView.querySelector('#email-report').addEventListener('click', () => {
     const subject = `ONYX — Rapport de journée — ${currentMission.reference}`;
@@ -204,8 +314,9 @@ async function showMission(uuid) {
     const button = missionView.querySelector('#download-report');
     button.disabled = true; reportError.textContent = '';
     try {
-      report = await fetchJson(apiUrl(`/missions/${uuid}/report`), { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uuid:report?.uuid, content:reportContent.value}) });
-      const response = await fetch(apiUrl(`/missions/${uuid}/report/docx`));
+      await persistDraft();
+      const path = report?.validation ? `/missions/${uuid}/report/versions/${report.validation.uuid}/docx` : `/missions/${uuid}/report/${report.uuid}/docx`;
+      const response = await fetch(apiUrl(path));
       if (!response.ok) throw new Error((await response.json()).error);
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a'); link.href = url; link.download = `rapport-ONYX-${currentMission.reference}.docx`; link.click();

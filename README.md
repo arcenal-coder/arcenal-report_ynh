@@ -53,4 +53,20 @@ La génération du rapport demande la localisation du navigateur pour ajouter le
 
 La documentation exploitable est dans [`openapi.yaml`](openapi.yaml).
 
-La transcription, les rapports, l'IA et les connecteurs externes ne font pas encore partie de l'application. Les photos et les enregistrements restent attachés à leur mission jusqu'à la génération et la validation du rapport de fin de mission.
+La transcription locale utilise Whisper.cpp lorsqu'il est installé et configuré.
+Le rapport factuel reste disponible sans IA. Les pièces jointes restent attachées
+à la mission ; les propositions IA nécessitent une configuration et une
+confirmation explicites.
+
+## Candidate 0.3.0 — API et MCP
+
+Le prochain paquet intègre un serveur MCP en lecture seule, une API REST machine
+avec jetons limités aux missions choisies et un écran de gestion réservé aux
+administrateurs YunoHost. Le client de correction Hermes est configurable, sans
+activation ni transmission par défaut. Les rapports validés restent figés et
+peuvent être repris en nouvelle version.
+
+Voir [le guide de connexion et les limites de recette](INTEGRATION_GUIDE.md).
+Cette candidate vise le canal Preview. La publication et la recette serveur sont
+tracées dans `.arcenal/DELIVERY_REPORT.md` ; une publication ne prouve pas une
+installation ou une connexion Hermes réussie.

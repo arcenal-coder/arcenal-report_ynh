@@ -72,11 +72,27 @@
       <header class="onyx-report-header"><img src="onyx-logo.png" alt="ONYX"><p>Rapport de fin de journée</p></header>
       <div class="section-heading"><h2>Proposition de rapport</h2><span id="report-mode">Brouillon local</span></div>
       <textarea id="report-content" maxlength="20000" aria-label="Contenu du rapport"></textarea>
+      <p id="report-validation-status" role="status" aria-live="polite"></p>
+      <details id="hermes-corrections" hidden>
+        <summary>Dialoguer avec Hermes pour corriger le brouillon</summary>
+        <p>Seuls ce brouillon et votre demande sont envoyés à l’agent Report configuré. Vérifiez la proposition : aucune correction n’est enregistrée automatiquement.</p>
+        <label for="hermes-instruction">Correction souhaitée</label><textarea id="hermes-instruction" maxlength="2000" placeholder="Exemple : corrige la syntaxe sans changer les faits."></textarea>
+        <button id="hermes-request" class="secondary-button" type="button">Demander une proposition de correction</button>
+        <section id="hermes-proposal-section" hidden>
+          <label for="hermes-proposal">Proposition à relire</label><textarea id="hermes-proposal" readonly></textarea>
+          <button id="hermes-apply" class="primary-button" type="button">Appliquer au brouillon après confirmation</button>
+        </section>
+        <p id="hermes-status" role="status" aria-live="polite"></p>
+      </details>
       <div class="form-actions"><button class="secondary-button" id="print-report" type="button">Imprimer / PDF</button><button class="primary-button" id="save-report" type="button">Enregistrer le brouillon</button></div>
+      <button class="primary-button" id="validate-report" type="button">Valider et figer le rapport</button>
+      <button class="secondary-button" id="reopen-report" type="button" hidden>Créer une copie modifiable</button>
       <button class="primary-button" id="download-report" type="button">Télécharger Word modifiable</button>
       <button class="secondary-button" id="email-report" type="button">Exporter par mail</button>
       <p id="report-error" class="form-error" role="alert"></p>
     </section>
+    <details id="report-history"><summary>Historique des rapports validés</summary><div id="report-versions"></div></details>
+    <p id="agent-unavailable" class="weather-help">Le dialogue de correction s’active uniquement après configuration de l’API Hermes et autorisation explicite de votre compte sur cette mission. Le serveur MCP est une connexion distincte, en lecture seule.</p>
   </template>
   <script src="app.js"></script>
 </body>

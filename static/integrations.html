@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connexions — ARCenal Report</title><link rel="stylesheet" href="styles.css"><script src="integrations.js" defer></script></head>
+<body><main class="application-shell">
+  <a class="back-button" href="./">Retour à la main courante</a>
+  <h1>Connexions API et MCP</h1>
+  <p>Administration YunoHost. Chaque accès autorise uniquement la lecture des missions sélectionnées. Aucun fichier audio/photo, brouillon ou outil d’écriture n’est exposé.</p>
+  <p id="integration-status" role="status" aria-live="polite">Chargement…</p>
+  <p id="integration-error" class="form-error" role="alert"></p>
+  <section aria-labelledby="connection-title"><h2 id="connection-title">Connexion de Hermes à Report</h2>
+    <p>URL MCP : <code id="mcp-url"></code></p>
+    <p>API REST : <code id="rest-url"></code></p>
+    <p>Transport : Streamable HTTP avec réponses JSON. Authentification : Bearer. Ce n’est pas l’ancien transport SSE. Les accès expirent et peuvent être révoqués immédiatement.</p>
+  </section>
+  <form id="credential-form">
+    <h2>Créer un accès</h2>
+    <label for="credential-label">Nom de l’accès</label><input id="credential-label" name="label" maxlength="80" required placeholder="Hermes — mission concernée">
+    <label for="expiry-days">Expiration dans combien de jours ?</label><input id="expiry-days" type="number" min="1" max="365" value="30" required>
+    <fieldset><legend>Missions autorisées</legend><div id="credential-missions"></div></fieldset>
+    <fieldset><legend>Portées autorisées</legend>
+      <label><input type="checkbox" name="scope" value="missions:read" checked> Lire les informations des missions</label>
+      <label><input type="checkbox" name="scope" value="entries:read" checked> Lire les notes et transcriptions (à vérifier)</label>
+      <label><input type="checkbox" name="scope" value="reports:read" checked> Lire les rapports validés</label>
+    </fieldset>
+    <button class="primary-button" type="submit" id="create-credential">Créer le jeton après confirmation</button>
+  </form>
+  <section id="credential-secret" hidden aria-labelledby="secret-title">
+    <h2 id="secret-title">Jeton affiché une seule fois</h2>
+    <p>Conservez-le dans le coffre d’accès de Hermes, jamais dans une URL ni dans un message. Report ne conserve que son empreinte. Il ne sera plus consultable après fermeture.</p>
+    <label for="new-token">Jeton Bearer</label><input id="new-token" type="password" readonly autocomplete="off" spellcheck="false">
+    <button class="secondary-button" type="button" id="toggle-token">Afficher / masquer le jeton</button>
+    <button class="secondary-button" type="button" id="forget-token">Masquer et effacer de cet écran</button>
+  </section>
+  <section aria-labelledby="credentials-title"><h2 id="credentials-title">Accès existants</h2><div id="credentials-list"></div></section>
+  <section><h2>Report vers Hermes</h2><p>L’API centrale d’agents est une connexion distincte. Elle nécessite un agent Report et une identité applicative autorisée côté ARCenal Agent. Aucun secret ARC/ATS n’est réutilisé et aucun envoi automatique n’est activé.</p></section>
+</main></body></html>

@@ -10,6 +10,9 @@ WorkingDirectory=__INSTALL_DIR__
 Environment=PYTHONPATH=__INSTALL_DIR__/backend
 Environment=MAIN_COURANTE_DB=__DATA_DIR__/arcenal-report.sqlite3
 Environment=MAIN_COURANTE_UPLOADS=__DATA_DIR__/uploads
+Environment=ARCENAL_DEPLOYMENT=yunohost
+Environment=ARCENAL_PUBLIC_URL=https://__DOMAIN____PATH__
+EnvironmentFile=-__DATA_DIR__/hermes.env
 Environment=WHISPER_CPP_BINARY=__INSTALL_DIR__/bin/whisper-cli
 Environment=WHISPER_CPP_MODEL=__DATA_DIR__/models/ggml-base.bin
 ExecStartPre=/usr/bin/python3 -c "import database, os; database.initialise(os.environ['MAIN_COURANTE_DB'])"
@@ -21,6 +24,7 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=__DATA_DIR__
 NoNewPrivileges=true
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

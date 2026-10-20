@@ -4,14 +4,14 @@ id = "arcenal_report"
 name = "ARCenal REPORT"
 description.fr = "Main courante terrain, pièces jointes et préparation des rapports de mission"
 description.en = "Field log, attachments and mission report preparation"
-version = "0.2.1~ynh1"
+version = "0.3.0~ynh1"
 maintainers = ["ARCenal"]
 
 [upstream]
 license = "proprietary"
 
 [integration]
-yunohost = ">= 11.2"
+yunohost = ">= 12.1.17"
 helpers_version = "2.1"
 architectures = ["amd64", "arm64"]
 multi_instance = false
@@ -31,7 +31,7 @@ ram.runtime = "1G"
 
     [install.init_main_permission]
     type = "group"
-    default = "visitors"
+    default = "all_users"
 
 [resources]
     [resources.system_user]
@@ -45,6 +45,20 @@ ram.runtime = "1G"
         [resources.permissions.main]
         url = "/"
         auth_header = true
+        [resources.permissions.integrations]
+        url = "/integrations.html"
+        additional_urls = ["/api/v1/integrations"]
+        allowed = "admins"
+        auth_header = true
+        protected = true
+        show_tile = true
+        [resources.permissions.machine]
+        url = "/mcp"
+        additional_urls = ["/api/integrations/v1/"]
+        allowed = "visitors"
+        auth_header = false
+        protected = true
+        show_tile = false
 
     [resources.ports]
         [resources.ports.main]

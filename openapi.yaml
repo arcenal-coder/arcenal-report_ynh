@@ -1,7 +1,11 @@
 openapi: 3.0.3
 info:
   title: ARCenal REPORT API
-  version: 0.1.0
+  version: 0.3.0
+  description: >-
+    API navigateur protégée par la session YunoHost en déploiement.
+    API machine distincte en lecture seule, avec Bearer limité aux missions.
+    Les routes sont relatives au chemin d'installation YunoHost.
 paths:
   /api/v1/missions:
     get:
@@ -70,3 +74,205 @@ paths:
       responses:
         '200': { description: Contenu de l'image }
         '404': { description: Fichier introuvable }
+  /mcp:
+    post:
+      summary: Serveur MCP Streamable HTTP en lecture seule
+      description: >-
+        JSON-RPC 2.0, initialize puis notifications/initialized, ping,
+        tools/list et tools/call. Accept doit inclure application/json et
+        text/event-stream. Versions 2025-03-26 et 2025-06-18. Sans session ni
+        flux SSE serveur ; GET et DELETE renvoient 405. Aucun jeton en URL.
+      security: [{ MachineBearer: [] }]
+      parameters:
+        - { name: MCP-Protocol-Version, in: header, schema: { type: string, enum: ['2025-03-26', '2025-06-18'] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method]
+              properties:
+                jsonrpc: { type: string, enum: ['2.0'] }
+                id: { oneOf: [{ type: string, maxLength: 128 }, { type: integer }] }
+                method: { type: string }
+                params: { type: object }
+      responses:
+        '200': { description: Résultat ou erreur JSON-RPC ; erreurs métier tools/call via isError }
+        '202': { description: Notification acceptée, sans corps }
+        '400': { description: JSON, paramètres ou version invalides }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Origin non autorisé }
+        '406': { description: Accept incompatible }
+        '413': { description: Plus de 100000 octets }
+        '415': { description: Content-Type incompatible }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/integrations/v1/missions:
+    get:
+      summary: Missions explicitement autorisées au jeton
+      security: [{ MachineBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200': { $ref: '#/components/responses/Page' }
+        '400': { description: Arguments invalides }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Portée missions:read absente }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/integrations/v1/missions/{mission_uuid}:
+    parameters: [{ $ref: '#/components/parameters/MissionUUID' }]
+    get:
+      summary: Mission autorisée, portée missions:read
+      security: [{ MachineBearer: [] }]
+      responses:
+        '200': { description: Informations de mission }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Portée absente }
+        '404': { description: Mission absente ou non autorisée }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/integrations/v1/missions/{mission_uuid}/entries:
+    parameters: [{ $ref: '#/components/parameters/MissionUUID' }]
+    get:
+      summary: Remontées horodatées, portée entries:read, sans fichiers ni chemins privés
+      description: Transcriptions non validées humainement, signalées explicitement comme telles.
+      security: [{ MachineBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - { name: since, in: query, description: Début inclus avec fuseau, schema: { type: string, format: date-time } }
+        - { name: until, in: query, description: Fin exclue avec fuseau, schema: { type: string, format: date-time } }
+      responses:
+        '200': { $ref: '#/components/responses/Page' }
+        '400': { description: Filtre ou pagination invalide }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Portée absente }
+        '404': { description: Mission non autorisée }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/integrations/v1/missions/{mission_uuid}/reports:
+    parameters: [{ $ref: '#/components/parameters/MissionUUID' }]
+    get:
+      summary: Versions validées uniquement, portée reports:read
+      security: [{ MachineBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200': { $ref: '#/components/responses/Page' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Portée absente }
+        '404': { description: Mission non autorisée }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/integrations/v1/missions/{mission_uuid}/reports/{version_uuid}:
+    parameters:
+      - { $ref: '#/components/parameters/MissionUUID' }
+      - { name: version_uuid, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Texte figé d'une version validée, portée reports:read
+      security: [{ MachineBearer: [] }]
+      responses:
+        '200': { description: Texte, auteur et date de validation ; snapshots internes exclus }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Portée absente }
+        '404': { description: Version ou mission inaccessible }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/integrations:
+    get:
+      summary: URLs et accès sans secrets, réservés aux administrateurs YunoHost
+      description: L'identité et le rôle sont imposés par le reverse proxy protégé, pas par le client.
+      responses:
+        '200': { description: URLs publiques, missions, portées et métadonnées des accès }
+        '403': { description: Session ou permission administrateur absente }
+        '503': { description: URL publique non configurée }
+  /api/v1/integrations/credentials:
+    post:
+      summary: Créer un accès machine après confirmation administrateur
+      description: Origin doit correspondre à l'URL publique configurée. Jeton visible une seule fois, empreinte seule conservée.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [label, missions, scopes, confirmed]
+              properties:
+                label: { type: string, minLength: 1, maxLength: 80 }
+                missions: { type: array, minItems: 1, maxItems: 100, items: { type: string, format: uuid } }
+                scopes: { type: array, minItems: 1, items: { type: string, enum: ['missions:read', 'entries:read', 'reports:read'] } }
+                expires_days: { type: integer, minimum: 1, maximum: 365, default: 30 }
+                confirmed: { type: boolean, enum: [true] }
+      responses:
+        '201': { description: Métadonnées et token, réponse no-store }
+        '400': { description: Confirmation, missions ou paramètres invalides }
+        '403': { description: Administrateur ou origine non autorisé }
+        '409': { description: 50 accès actifs déjà présents }
+  /api/v1/integrations/credentials/{credential_uuid}/revoke:
+    parameters: [{ name: credential_uuid, in: path, required: true, schema: { type: string, pattern: '^[a-f0-9]{32}$' } }]
+    post:
+      summary: Révoquer un accès après confirmation administrateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmed]
+              properties: { confirmed: { type: boolean, enum: [true] } }
+      responses:
+        '200': { description: Accès révoqué }
+        '400': { description: Confirmation absente }
+        '403': { description: Administrateur ou origine non autorisé }
+        '404': { description: Accès introuvable }
+  /api/v1/missions/{mission_uuid}/report/assist:
+    parameters: [{ $ref: '#/components/parameters/MissionUUID' }]
+    get:
+      summary: Disponibilité de la correction Hermes pour l'utilisateur SSO et la mission
+      responses: { '200': { description: available, booléen ; aucune donnée envoyée à Hermes } }
+    post:
+      summary: Demander une proposition, sans enregistrer ni valider le rapport
+      description: Session SSO, autorisation serveur explicite, configuration Hermes dédiée et Origin valide requis. Aucun Bearer MCP accepté ici.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uuid, expected_updated_at, instruction, confirmed]
+              properties:
+                uuid: { type: string, format: uuid }
+                expected_updated_at: { type: string, format: date-time }
+                instruction: { type: string, minLength: 1, maxLength: 2000 }
+                confirmed: { type: boolean, enum: [true] }
+      responses:
+        '200': { description: Proposition à relire, uuid du brouillon, expected_updated_at et request_id }
+        '400': { description: Confirmation ou saisie invalide }
+        '403': { description: Utilisateur, mission ou origine non autorisé }
+        '409': { description: Brouillon absent, modifié ou déjà validé }
+        '503': { description: Connexion Hermes indisponible ou réponse refusée }
+components:
+  securitySchemes:
+    MachineBearer:
+      type: http
+      scheme: bearer
+      description: Jeton opaque créé dans l'administration Report, jamais dans l'URL. Pas un jeton ARC/ATS ou une session SSO.
+  parameters:
+    MissionUUID: { name: mission_uuid, in: path, required: true, schema: { type: string, format: uuid } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    Offset: { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 1000000, default: 0 } }
+  responses:
+    Unauthorized:
+      description: Jeton absent, invalide, expiré ou révoqué ; WWW-Authenticate Bearer
+    RateLimited:
+      description: 60 requêtes par minute par accès ; Retry-After 60 secondes
+    Page:
+      description: Résultats autorisés et pagination
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [items, next_offset]
+            properties:
+              items: { type: array, items: { type: object } }
+              next_offset: { type: integer, nullable: true }

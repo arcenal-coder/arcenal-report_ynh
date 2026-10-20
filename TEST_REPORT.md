@@ -45,3 +45,13 @@ Correction : transfert récursif du dossier `bin` au compte applicatif dans le h
 | Transcription vocale réelle | NON_EXÉCUTÉ | Commandes de transcription simulées dans les tests ; modèle et binaire absents localement. |
 
 Publication, tag et promotion Preview autorisés par l’utilisateur le 20 octobre 2026. Candidate : `0.2.1~ynh1`, branche `preview`, tag `v0.2.1`. Avant application sur serveur : sauvegarde complète de l’application. Validation attendue : relancer une note existante, vérifier le texte et son intégration dans un rapport. En cas d’échec, conserver le diagnostic affiché ; ne pas effacer l’audio. Retour arrière par restauration de la sauvegarde applicative complète. La non-conformité reste ouverte jusqu’à cette recette.
+# Candidate 0.3.0 — API et MCP (20 octobre 2026)
+
+Les 63 exécutions unittest passent. Le client officiel MCP Python 1.30.0
+valide le cycle initialize/list/call/ping sur une base temporaire. Les contrôles
+de syntaxe, le lint ciblé et le diff passent. Le parcours navigateur a été
+vérifié avec SSO et réponse Hermes simulés, sans donnée client ni appel externe.
+
+Preuves et réserves détaillées :
+[API_MCP_VALIDATION.md](.arcenal/API_MCP_VALIDATION.md).
+Installation YunoHost et connexion au Hermes réel : NON EXÉCUTÉES.

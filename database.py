@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -36,9 +37,49 @@ def initialise(database_path):
                 updated_at TEXT NOT NULL
             )
         """)
+        report_columns = {row[1] for row in connection.execute('PRAGMA table_info(reports)')}
+        if 'source_version_uuid' not in report_columns:
+            connection.execute('ALTER TABLE reports ADD COLUMN source_version_uuid TEXT')
+        if 'revision_reason' not in report_columns:
+            connection.execute("ALTER TABLE reports ADD COLUMN revision_reason TEXT NOT NULL DEFAULT ''")
+        connection.executescript("""
+            CREATE TABLE IF NOT EXISTS report_versions (
+                uuid TEXT PRIMARY KEY,
+                mission_uuid TEXT NOT NULL REFERENCES missions(uuid),
+                report_uuid TEXT NOT NULL UNIQUE REFERENCES reports(uuid),
+                version INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                validated_by TEXT NOT NULL,
+                identity_source TEXT NOT NULL,
+                validated_at TEXT NOT NULL,
+                source_version_uuid TEXT REFERENCES report_versions(uuid),
+                revision_reason TEXT NOT NULL,
+                mission_json TEXT NOT NULL,
+                sources_json TEXT NOT NULL,
+                UNIQUE(mission_uuid, version)
+            );
+            CREATE TRIGGER IF NOT EXISTS report_versions_no_update
+            BEFORE UPDATE ON report_versions BEGIN
+                SELECT RAISE(ABORT, 'Validated versions are immutable');
+            END;
+            CREATE TRIGGER IF NOT EXISTS report_versions_no_delete
+            BEFORE DELETE ON report_versions BEGIN
+                SELECT RAISE(ABORT, 'Validated versions are immutable');
+            END;
+            CREATE TRIGGER IF NOT EXISTS validated_reports_no_update
+            BEFORE UPDATE ON reports
+            WHEN EXISTS (SELECT 1 FROM report_versions WHERE report_uuid = OLD.uuid)
+            BEGIN SELECT RAISE(ABORT, 'Validated reports are immutable'); END;
+            CREATE TRIGGER IF NOT EXISTS validated_reports_no_delete
+            BEFORE DELETE ON reports
+            WHEN EXISTS (SELECT 1 FROM report_versions WHERE report_uuid = OLD.uuid)
+            BEGIN SELECT RAISE(ABORT, 'Validated reports are immutable'); END;
+        """)
         has_missions = connection.execute("SELECT 1 FROM missions LIMIT 1").fetchone()
         if not has_missions:
             seed(connection)
+        import integration_service
+        integration_service.initialise(connection)
 
 
 def ensure_entries_table(connection):
@@ -151,26 +192,107 @@ def get_latest_report(database_path, mission_uuid):
         row = connection.execute(
             "SELECT * FROM reports WHERE mission_uuid = ? ORDER BY updated_at DESC LIMIT 1", (mission_uuid,)
         ).fetchone()
-        return dict(row) if row else None
+        return report_state(connection, row) if row else None
 
 
-def save_report(database_path, mission_uuid, content, report_uuid=None):
+def get_report(database_path, mission_uuid, report_uuid):
+    with connect(database_path) as connection:
+        row = connection.execute('SELECT * FROM reports WHERE mission_uuid = ? AND uuid = ?', (mission_uuid, report_uuid)).fetchone()
+        return report_state(connection, row) if row else None
+
+
+class ReportConflict(ValueError):
+    pass
+
+
+def report_state(connection, row):
+    report = dict(row)
+    version = connection.execute(
+        'SELECT uuid, version, validated_by, validated_at, identity_source FROM report_versions WHERE report_uuid = ?',
+        (report['uuid'],),
+    ).fetchone()
+    report['status'] = 'validated' if version else 'draft'
+    report['validation'] = dict(version) if version else None
+    return report
+
+
+def save_report(database_path, mission_uuid, content, report_uuid=None, expected_updated_at=None):
     timestamp = datetime.now(ZoneInfo("Europe/Paris")).isoformat()
     with connect(database_path) as connection:
+        connection.execute('BEGIN IMMEDIATE')
         if report_uuid:
+            row = connection.execute('SELECT * FROM reports WHERE uuid = ? AND mission_uuid = ?', (report_uuid, mission_uuid)).fetchone()
+            if not row:
+                raise ReportConflict('Rapport introuvable dans cette mission.')
+            if report_state(connection, row)['status'] == 'validated':
+                raise ReportConflict('Rapport validé : ouvrez une copie pour le modifier.')
+            if expected_updated_at is not None and row['updated_at'] != expected_updated_at:
+                raise ReportConflict('Le brouillon a changé. Rechargez-le avant de poursuivre.')
             connection.execute(
                 "UPDATE reports SET content = ?, updated_at = ? WHERE uuid = ? AND mission_uuid = ?",
                 (content, timestamp, report_uuid, mission_uuid),
             )
-            row = connection.execute("SELECT * FROM reports WHERE uuid = ?", (report_uuid,)).fetchone()
-            if row:
-                return dict(row)
+            row = connection.execute("SELECT * FROM reports WHERE uuid = ? AND mission_uuid = ?", (report_uuid, mission_uuid)).fetchone()
+            return report_state(connection, row)
         report_uuid = str(uuid4())
         connection.execute(
             "INSERT INTO reports (uuid, mission_uuid, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
             (report_uuid, mission_uuid, content, timestamp, timestamp),
         )
-        return dict(connection.execute("SELECT * FROM reports WHERE uuid = ?", (report_uuid,)).fetchone())
+        return report_state(connection, connection.execute("SELECT * FROM reports WHERE uuid = ?", (report_uuid,)).fetchone())
+
+
+def list_report_versions(database_path, mission_uuid):
+    with connect(database_path) as connection:
+        return [dict(row) for row in connection.execute(
+            '''SELECT uuid, report_uuid, version, validated_by, identity_source,
+                      validated_at, revision_reason, source_version_uuid
+               FROM report_versions WHERE mission_uuid = ? ORDER BY version DESC''', (mission_uuid,)
+        )]
+
+
+def get_report_version(database_path, mission_uuid, version_uuid):
+    with connect(database_path) as connection:
+        row = connection.execute('SELECT * FROM report_versions WHERE uuid = ? AND mission_uuid = ?', (version_uuid, mission_uuid)).fetchone()
+        return dict(row) if row else None
+
+
+def validate_report(database_path, mission_uuid, report_uuid, content, expected_updated_at, actor, identity_source):
+    timestamp = datetime.now(ZoneInfo('Europe/Paris')).isoformat()
+    with connect(database_path) as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        row = connection.execute('SELECT * FROM reports WHERE uuid = ? AND mission_uuid = ?', (report_uuid, mission_uuid)).fetchone()
+        if not row or report_state(connection, row)['status'] == 'validated':
+            raise ReportConflict('Brouillon absent ou déjà validé.')
+        if row['updated_at'] != expected_updated_at or row['content'] != content:
+            raise ReportConflict('Le texte a changé. Enregistrez et relisez le brouillon avant de valider.')
+        version_number = connection.execute('SELECT COALESCE(MAX(version), 0) + 1 FROM report_versions WHERE mission_uuid = ?', (mission_uuid,)).fetchone()[0]
+        # Record a source snapshot, not a claim that media files are immutable.
+        sources = [dict(entry) for entry in connection.execute('SELECT * FROM entries WHERE mission_uuid = ? ORDER BY occurred_at', (mission_uuid,))]
+        connection.execute('''INSERT INTO report_versions
+            (uuid, mission_uuid, report_uuid, version, content, validated_by,
+             identity_source, validated_at, source_version_uuid, revision_reason, mission_json, sources_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (str(uuid4()), mission_uuid, report_uuid, version_number, content, actor,
+             identity_source, timestamp, row['source_version_uuid'], row['revision_reason'],
+             json.dumps(dict(connection.execute('SELECT * FROM missions WHERE uuid = ?', (mission_uuid,)).fetchone()), ensure_ascii=False),
+             json.dumps(sources, ensure_ascii=False)))
+        return report_state(connection, row)
+
+
+def reopen_report_version(database_path, mission_uuid, version_uuid, reason):
+    timestamp = datetime.now(ZoneInfo('Europe/Paris')).isoformat()
+    with connect(database_path) as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        version = connection.execute('SELECT * FROM report_versions WHERE uuid = ? AND mission_uuid = ?', (version_uuid, mission_uuid)).fetchone()
+        if not version:
+            raise ReportConflict('Version introuvable dans cette mission.')
+        report_uuid = str(uuid4())
+        connection.execute('''INSERT INTO reports
+            (uuid, mission_uuid, content, created_at, updated_at, source_version_uuid, revision_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (report_uuid, mission_uuid, version['content'], timestamp, timestamp, version_uuid, reason))
+        return report_state(connection, connection.execute('SELECT * FROM reports WHERE uuid = ?', (report_uuid,)).fetchone())
 
 
 def add_text_entry(database_path, mission_uuid, content):

@@ -12,6 +12,7 @@ mkdir -p "$install_dir/web" "$install_dir/backend" "$data_dir/uploads" "$data_di
 cp -a "$package_root/static/." "$install_dir/web/"
 cp "$package_root/app.py" "$package_root/database.py" "$package_root/transcription.py" "$package_root/ai_reporting.py" "$package_root/report_document.py" "$install_dir/backend/"
 cp "$package_root/weather.py" "$install_dir/backend/"
+cp "$package_root/integration_service.py" "$package_root/integration_http.py" "$package_root/hermes_client.py" "$install_dir/backend/"
 if [ ! -x "$install_dir/bin/whisper-cli" ] || [ ! -f "$data_dir/models/ggml-base.bin" ]; then
     install_whisper_cpp
 fi

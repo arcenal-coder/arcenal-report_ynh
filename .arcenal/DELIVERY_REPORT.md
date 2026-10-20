@@ -1,4 +1,29 @@
-# Diffusion ARCenal REPORT 0.2.1
+# Diffusion ARCenal REPORT 0.3.0 — Preview
+
+Date : 20 octobre 2026. Publication GitHub et ARCenal Store demandée explicitement
+par Damien après développement. La cible reste Preview, sans promotion stable.
+
+- Source : https://github.com/arcenal-coder/arcenal-report_ynh
+- Branche : `preview` ; version `0.3.0~ynh1` ; tag prévu `v0.3.0`.
+- Commit proposé : `feat: add scoped MCP and API integrations with report validation`.
+- Contrôles locaux renouvelés : Ruff ciblé, syntaxe JavaScript, compilation
+  Python, syntaxe Bash, 63 exécutions unittest et diff RÉUSSIS.
+- Preuves : `.arcenal/API_MCP_VALIDATION.md` et `INTEGRATION_GUIDE.md`.
+- Catalogue cible : `arcenal-systeme-catalogue`, entrée `arcenal_report`,
+  préparation development puis promotion officielle ciblée vers Preview,
+  branche source `preview` et SHA exact de la candidate.
+- Publication GitHub : EN COURS ; SHA à consigner après commit et vérification.
+- Catalogue / Store Preview : EN COURS ; résolution publique à vérifier.
+- Installation et cycle de vie YunoHost réels : NON_EXÉCUTÉS. Aucune session
+  d'administration YunoHost authentifiée ni sauvegarde serveur n'a été vérifiée.
+- Connexion au Hermes installé : NON_EXÉCUTÉE. Nécessite une identité Report
+  dédiée côté ARCenal Agent ; le MCP et le client API ne créent pas ces droits.
+- Retour arrière : sauvegarde complète avant upgrade ; restauration conjointe
+  code/base/configuration. Recontrôler les jetons après restauration, qui peut
+  précéder une révocation. Ne pas effacer les remontées ou réinstaller pour
+  contourner une erreur de mise à niveau.
+
+## Historique — diffusion 0.2.1
 
 Date : 20 octobre 2026. Push, tag et promotion Preview autorisés par Damien dans cette conversation.
 

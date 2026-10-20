@@ -19,6 +19,7 @@ set_runtime_permissions() {
     chmod 750 "$install_dir" "$data_dir" "$data_dir/uploads" "$data_dir/models"
     chmod 750 "$install_dir/bin/whisper-cli"
     chmod 750 "$install_dir/bin"
+    find "$data_dir" -maxdepth 1 -type f -exec chmod 600 {} +
 }
 
 install_whisper_cpp() {

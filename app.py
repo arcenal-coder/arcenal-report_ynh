@@ -12,11 +12,13 @@ import transcription
 import ai_reporting
 import report_document
 import weather
+import integration_http
+import hermes_client
 
 
 ROOT = Path(__file__).parent
 DATABASE_PATH = os.environ.get("MAIN_COURANTE_DB", str(ROOT / "data" / "main-courante.sqlite3"))
-STATIC_DIRECTORY = ROOT / "static"
+STATIC_DIRECTORY = ROOT / 'static' if (ROOT / 'static').is_dir() else ROOT.parent / 'web'
 UPLOAD_DIRECTORY = Path(os.environ.get("MAIN_COURANTE_UPLOADS", str(ROOT / "data" / "uploads")))
 MAX_PHOTO_SIZE = 10 * 1024 * 1024
 MAX_AUDIO_SIZE = 25 * 1024 * 1024
@@ -24,7 +26,7 @@ MAX_AUDIO_SIZE = 25 * 1024 * 1024
 
 def json_response(start_response, status, body):
     payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
-    start_response(status, [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(payload)))])
+    start_response(status, [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(payload))), ('Cache-Control', 'no-store')])
     return [payload]
 
 
@@ -145,7 +147,8 @@ def api(environ, start_response, path):
             return json_response(start_response, "200 OK", {"entries": database.list_entries(DATABASE_PATH, mission_uuid)})
         if method == "POST":
             payload = read_json(environ)
-            content = payload.get("content", "").strip() if isinstance(payload, dict) else ""
+            raw_content = payload.get('content') if isinstance(payload, dict) else None
+            content = raw_content.strip() if isinstance(raw_content, str) else ''
             if not content or len(content) > 2_000:
                 return json_response(start_response, "400 Bad Request", {"error": "La note doit contenir entre 1 et 2000 caractères."})
             return json_response(start_response, "201 Created", database.add_text_entry(DATABASE_PATH, mission_uuid, content))
@@ -194,14 +197,103 @@ def api(environ, start_response, path):
             return json_response(start_response, "201 Created", report)
         if method == "PUT":
             payload = read_json(environ)
-            content = payload.get("content", "").strip() if isinstance(payload, dict) else ""
+            raw_content = payload.get('content') if isinstance(payload, dict) else None
+            content = raw_content.strip() if isinstance(raw_content, str) else ''
             report_uuid = payload.get("uuid") if isinstance(payload, dict) else None
+            if report_uuid is not None and not isinstance(report_uuid, str):
+                return json_response(start_response, '400 Bad Request', {'error': 'Identifiant de rapport invalide.'})
             if not content or len(content) > 20_000:
                 return json_response(start_response, "400 Bad Request", {"error": "Le rapport doit contenir entre 1 et 20 000 caractères."})
-            return json_response(start_response, "200 OK", database.save_report(DATABASE_PATH, mission_uuid, content, report_uuid))
-    if len(segments) == 6 and segments[:3] == ['api', 'v1', 'missions'] and segments[4:] == ['report', 'docx'] and method == 'GET':
+            try:
+                report = database.save_report(DATABASE_PATH, mission_uuid, content, report_uuid, payload.get('expected_updated_at'))
+            except database.ReportConflict as error:
+                return json_response(start_response, '409 Conflict', {'error': str(error)})
+            return json_response(start_response, "200 OK", report)
+    if len(segments) >= 6 and segments[:3] == ['api', 'v1', 'missions'] and segments[4] == 'report':
+        mission_uuid = segments[3]
+        if not database.get_mission(DATABASE_PATH, mission_uuid):
+            return json_response(start_response, '404 Not Found', {'error': 'Mission introuvable.'})
+        if segments[5:] == ['assist']:
+            actor = environ.get('HTTP_REMOTE_USER', '')
+            if method == 'GET':
+                return integration_http.respond(start_response, '200 OK', {'available': hermes_client.allowed(mission_uuid, actor)})
+            if method == 'POST':
+                try:
+                    integration_http.check_origin(environ, required=True)
+                    payload = integration_http.body_json(environ)
+                    if not isinstance(payload, dict) or payload.get('confirmed') is not True:
+                        return json_response(start_response, '400 Bad Request', {'error': 'Confirmez l’envoi du brouillon et de la demande à Hermes.'})
+                    if not hermes_client.allowed(mission_uuid, actor):
+                        return json_response(start_response, '403 Forbidden', {'error': 'Connexion Hermes non configurée ou mission non autorisée.'})
+                    instruction = payload.get('instruction')
+                    report_uuid = payload.get('uuid')
+                    if not isinstance(instruction, str) or not 1 <= len(instruction.strip()) <= 2_000 or not isinstance(report_uuid, str):
+                        return json_response(start_response, '400 Bad Request', {'error': 'Brouillon et demande de correction (2000 caractères maximum) obligatoires.'})
+                    report = database.get_report(DATABASE_PATH, mission_uuid, report_uuid)
+                    if not report or report['status'] != 'draft' or payload.get('expected_updated_at') != report['updated_at']:
+                        return json_response(start_response, '409 Conflict', {'error': 'Brouillon absent, modifié ou déjà validé. Rechargez-le.'})
+                    proposal = hermes_client.propose(report, instruction.strip(), actor)
+                    current = database.get_report(DATABASE_PATH, mission_uuid, report_uuid)
+                    if not current or current['status'] != 'draft' or current['updated_at'] != report['updated_at']:
+                        return json_response(start_response, '409 Conflict', {'error': 'Le brouillon a changé pendant la correction. Aucune proposition appliquée.'})
+                    return integration_http.respond(start_response, '200 OK', proposal | {'uuid': report_uuid, 'expected_updated_at': report['updated_at']})
+                except integration_http.service.AccessError as error:
+                    return integration_http.respond(start_response, error.status, {'error': str(error)})
+                except hermes_client.HermesUnavailable as error:
+                    return integration_http.respond(start_response, '503 Service Unavailable', {'error': str(error)})
+        if segments[5:] == ['versions'] and method == 'GET':
+            return json_response(start_response, '200 OK', {'versions': database.list_report_versions(DATABASE_PATH, mission_uuid)})
+        if len(segments) == 7 and segments[5] == 'versions' and method == 'GET':
+            version = database.get_report_version(DATABASE_PATH, mission_uuid, segments[6])
+            if not version:
+                return json_response(start_response, '404 Not Found', {'error': 'Version introuvable.'})
+            # Source snapshots stay server-side, not in browser history/URLs.
+            return json_response(start_response, '200 OK', {key: value for key, value in version.items() if key not in ('sources_json', 'mission_json')})
+        if len(segments) == 8 and segments[5] == 'versions' and segments[7] == 'docx' and method == 'GET':
+            version = database.get_report_version(DATABASE_PATH, mission_uuid, segments[6])
+            if not version:
+                return json_response(start_response, '404 Not Found', {'error': 'Version introuvable.'})
+            try:
+                content = report_document.build_docx(json.loads(version['mission_json']), version,
+                    json.loads(version['sources_json']), UPLOAD_DIRECTORY)
+            except ImportError:
+                return json_response(start_response, '503 Service Unavailable', {'error': 'Le module python-docx est nécessaire.'})
+            start_response('200 OK', [('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+                ('Content-Length', str(len(content))), ('Content-Disposition', f'attachment; filename="rapport-onyx-v{version["version"]}.docx"'), ('Cache-Control', 'no-store')])
+            return [content]
+        if segments[5:] == ['validate'] and method == 'POST':
+            payload = read_json(environ)
+            if not isinstance(payload, dict) or payload.get('confirmed') is not True:
+                return json_response(start_response, '400 Bad Request', {'error': 'La confirmation explicite de validation est obligatoire.'})
+            sso_actor = environ.get('HTTP_REMOTE_USER') or environ.get('HTTP_AUTH_USER')
+            actor = sso_actor or payload.get('author')
+            content = payload.get('content')
+            if not isinstance(actor, str) or not 1 <= len(actor.strip()) <= 120:
+                return json_response(start_response, '400 Bad Request', {'error': 'Le nom du validateur est obligatoire.'})
+            if not isinstance(content, str) or not 1 <= len(content.strip()) <= 20_000 or not isinstance(payload.get('uuid'), str) or not isinstance(payload.get('expected_updated_at'), str):
+                return json_response(start_response, '400 Bad Request', {'error': 'Brouillon et version de relecture obligatoires.'})
+            try:
+                report = database.validate_report(DATABASE_PATH, mission_uuid, payload['uuid'], content,
+                    payload['expected_updated_at'], actor.strip(), 'sso' if sso_actor else 'local_declared')
+            except database.ReportConflict as error:
+                return json_response(start_response, '409 Conflict', {'error': str(error)})
+            return json_response(start_response, '201 Created', report)
+        if len(segments) == 8 and segments[5] == 'versions' and segments[7] == 'reopen' and method == 'POST':
+            payload = read_json(environ)
+            reason = payload.get('reason') if isinstance(payload, dict) else None
+            if not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 500 or payload.get('confirmed') is not True:
+                return json_response(start_response, '400 Bad Request', {'error': 'Confirmez la création de copie et indiquez le motif de reprise (500 caractères maximum).'})
+            try:
+                report = database.reopen_report_version(DATABASE_PATH, mission_uuid, segments[6], reason.strip())
+            except database.ReportConflict as error:
+                return json_response(start_response, '409 Conflict', {'error': str(error)})
+            return json_response(start_response, '201 Created', report)
+    if segments[:3] == ['api', 'v1', 'missions'] and method == 'GET' and (
+            len(segments) == 6 and segments[4:] == ['report', 'docx']
+            or len(segments) == 7 and segments[4] == 'report' and segments[6] == 'docx'):
         mission = database.get_mission(DATABASE_PATH, segments[3])
-        report = database.get_latest_report(DATABASE_PATH, segments[3]) if mission else None
+        report = (database.get_report(DATABASE_PATH, segments[3], segments[5]) if len(segments) == 7
+                  else database.get_latest_report(DATABASE_PATH, segments[3])) if mission else None
         if not report:
             return json_response(start_response, '404 Not Found', {'error': 'Générez et enregistrez le rapport avant de le télécharger.'})
         try:
@@ -226,7 +318,25 @@ def api(environ, start_response, path):
 
 def application(environ, start_response):
     path = urlparse(environ.get("PATH_INFO", "/")).path
+    if path == '/mcp' or path.startswith('/api/integrations/v1/') or path == '/api/integrations/v1' or path == '/api/v1/integrations' or path.startswith('/api/v1/integrations/'):
+        return integration_http.handle(environ, start_response, DATABASE_PATH, path)
+    # Machine credentials must never fall through to the browser's writable API.
+    if environ.get('HTTP_AUTHORIZATION') and path.startswith('/api/'):
+        return integration_http.respond(start_response, '403 Forbidden', {'error': 'Ce jeton est réservé aux routes machine en lecture seule.'})
+    if path == '/integrations.html':
+        try:
+            integration_http.admin_identity(environ)
+        except integration_http.service.AccessError as error:
+            return integration_http.respond(start_response, error.status, {'error': str(error)})
     if path.startswith("/api/"):
+        if os.environ.get('ARCENAL_DEPLOYMENT') == 'yunohost':
+            if not environ.get('HTTP_REMOTE_USER'):
+                return integration_http.respond(start_response, '401 Unauthorized', {'error': 'Session YunoHost requise.'})
+            if environ.get('REQUEST_METHOD') not in ('GET', 'HEAD'):
+                try:
+                    integration_http.check_origin(environ, required=True)
+                except integration_http.service.AccessError as error:
+                    return integration_http.respond(start_response, error.status, {'error': str(error)})
         return api(environ, start_response, path)
     if path == "/":
         path = "/index.html"
