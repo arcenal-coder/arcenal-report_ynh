@@ -21,12 +21,40 @@ function locateForWeather() {
 function formatTime(timestamp) { return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(timestamp)); }
 function escapeHtml(value) { const node = document.createElement('div'); node.textContent = value; return node.innerHTML; }
 
-async function fetchJson(url, options) { const response = await fetch(url, options); const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Une erreur est survenue.'); return body; }
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  const body = await response.json().catch(() => null);
+  if (!response.ok || body === null) {
+    const error = new Error(response.status === 401 || (response.redirected && body === null)
+      ? 'Votre session a expiré. Reconnectez-vous à YunoHost.'
+      : body?.error || `Le service ne répond pas correctement (HTTP ${response.status}). Réessayez.`);
+    error.status = response.redirected && body === null ? 401 : response.status;
+    throw error;
+  }
+  return body;
+}
+
+function showMissionLoadError(error) {
+  document.querySelector('#missions-load-error').hidden = false;
+  document.querySelector('#missions-error-message').textContent = error.message || 'Service inaccessible. Vérifiez votre connexion puis réessayez.';
+  document.querySelector('#missions-login').hidden = error.status !== 401;
+}
+
+async function loadMissions() {
+  missionView.hidden = true; missionsView.hidden = false;
+  document.querySelector('#missions-load-error').hidden = true;
+  const button = document.querySelector('#retry-missions');
+  button.disabled = true;
+  try { await showMissions(); }
+  catch (error) { showMissionLoadError(error); }
+  finally { button.disabled = false; }
+}
 
 async function showMissions() {
   const { missions } = await fetchJson(apiUrl('/missions'));
   missionsContainer.innerHTML = missions.map(mission => `<button class="mission-card" type="button" data-mission="${mission.uuid}"><strong>${escapeHtml(mission.client_name)}</strong><span class="title">${escapeHtml(mission.title)}</span><footer><span><i class="status-dot"></i>En cours</span><span>Ouvrir →</span></footer></button>`).join('');
-  missionsContainer.querySelectorAll('[data-mission]').forEach(button => button.addEventListener('click', () => showMission(button.dataset.mission)));
+  if (!missions.length) missionsContainer.textContent = 'Aucune mission pour le moment. Créez votre première mission pour commencer les saisies.';
+  missionsContainer.querySelectorAll('[data-mission]').forEach(button => button.addEventListener('click', () => showMission(button.dataset.mission).catch(showMissionLoadError)));
   missionView.hidden = true; missionsView.hidden = false;
 }
 
@@ -151,7 +179,7 @@ async function showMission(uuid) {
   missionView.querySelector('#mission-reference').textContent = currentMission.reference;
   const { entries } = await fetchJson(apiUrl(`/missions/${uuid}/entries`)); renderEntries(entries);
   if (entries.some(entry => entry.entry_type === 'audio' && ['queued', 'processing'].includes(entry.transcription_status))) window.setTimeout(() => showMission(uuid), 2500);
-  missionView.querySelectorAll('[data-home]').forEach(button => button.addEventListener('click', showMissions));
+  missionView.querySelectorAll('[data-home]').forEach(button => button.addEventListener('click', loadMissions));
   const options = missionView.querySelector('#add-options');
   const form = missionView.querySelector('#entry-form');
   const photoForm = missionView.querySelector('#photo-form');
@@ -341,4 +369,37 @@ async function showMission(uuid) {
   missionsView.hidden = true; missionView.hidden = false;
 }
 
-showMissions().catch(() => { missionsContainer.textContent = "Impossible de charger les missions. Réessayez plus tard."; });
+document.querySelectorAll('header [data-home]').forEach(button => button.addEventListener('click', loadMissions));
+document.querySelector('#retry-missions').addEventListener('click', loadMissions);
+const missionCreateForm = document.querySelector('#mission-create-form');
+const newMissionButton = document.querySelector('#new-mission');
+function closeMissionForm() {
+  missionCreateForm.reset(); missionCreateForm.hidden = true;
+  newMissionButton.setAttribute('aria-expanded', 'false'); newMissionButton.focus();
+}
+newMissionButton.addEventListener('click', () => {
+  missionCreateForm.hidden = false; newMissionButton.setAttribute('aria-expanded', 'true');
+  document.querySelector('#mission-create-error').textContent = '';
+  if (!document.querySelector('#mission-date').value) {
+    const now = new Date();
+    document.querySelector('#mission-date').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+  document.querySelector('#mission-client').focus();
+});
+document.querySelector('#cancel-mission').addEventListener('click', closeMissionForm);
+missionCreateForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = missionCreateForm.querySelector('[type="submit"]');
+  const error = document.querySelector('#mission-create-error');
+  error.textContent = ''; button.disabled = true;
+  try {
+    const payload = Object.fromEntries(new FormData(missionCreateForm));
+    const mission = await fetchJson(apiUrl('/missions'), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+    closeMissionForm();
+    document.querySelector('#mission-notice').textContent = `Mission « ${mission.title} » enregistrée (${mission.reference}).`;
+    try { await showMission(mission.uuid); }
+    catch (openError) { await loadMissions(); showMissionLoadError(openError); }
+  } catch (exception) { error.textContent = exception.message; }
+  finally { button.disabled = false; }
+});
+loadMissions();

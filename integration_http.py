@@ -10,7 +10,7 @@ import integration_service as service
 
 
 PROTOCOLS = ('2025-03-26', '2025-06-18')
-SERVER_VERSION = '0.3.0'
+SERVER_VERSION = '0.3.1'
 MAX_BODY = 100_000
 
 

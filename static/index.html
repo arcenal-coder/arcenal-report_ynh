@@ -13,8 +13,29 @@
       <span class="stage">ÉTAPE 3</span>
     </header>
     <section id="missions-view" aria-labelledby="missions-title">
-      <p class="eyebrow">Bonjour Jean</p>
+      <p class="eyebrow">Votre espace de travail</p>
       <h1 id="missions-title">Mes missions</h1>
+      <button id="new-mission" class="primary-button" type="button" aria-expanded="false" aria-controls="mission-create-form">Créer une mission</button>
+      <form id="mission-create-form" hidden>
+        <h2>Nouvelle mission</h2>
+        <label for="mission-client">Client</label>
+        <input id="mission-client" name="client_name" maxlength="160" required autocomplete="organization">
+        <label for="mission-name">Intitulé de la mission</label>
+        <input id="mission-name" name="title" maxlength="240" required>
+        <label for="mission-ref">Référence (facultative)</label>
+        <input id="mission-ref" name="reference" maxlength="100" aria-describedby="mission-ref-help">
+        <p id="mission-ref-help" class="retention-note">Une référence unique sera créée si vous laissez ce champ vide.</p>
+        <label for="mission-date">Date de début</label>
+        <input id="mission-date" name="mission_date" type="date" required>
+        <div class="form-actions"><button id="cancel-mission" type="button" class="secondary-button">Annuler</button><button type="submit" class="primary-button">Enregistrer et ouvrir</button></div>
+        <p id="mission-create-error" class="form-error" role="alert"></p>
+      </form>
+      <p id="mission-notice" role="status"></p>
+      <div id="missions-load-error" hidden>
+        <p id="missions-error-message" class="form-error" role="alert"></p>
+        <button id="retry-missions" class="secondary-button" type="button">Réessayer</button>
+        <a id="missions-login" href="/yunohost/sso/" hidden>Se reconnecter à YunoHost</a>
+      </div>
       <div id="missions" class="mission-list" aria-live="polite"></div>
     </section>
     <section id="mission-view" hidden aria-live="polite"></section>

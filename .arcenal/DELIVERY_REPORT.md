@@ -1,4 +1,25 @@
-# Diffusion ARCenal REPORT 0.3.0 — Preview
+# Diffusion ARCenal REPORT 0.3.1 — Preview
+
+Publication GitHub et Store Preview autorisée par Damien le 20 octobre 2026.
+Installation sur son serveur laissée à Damien, sans déploiement automatique.
+
+- Périmètre : création manuelle de mission depuis l'accueil (client, intitulé,
+  référence facultative, date), contrôle des doublons et ouverture pour saisie.
+  Correction de la confusion Basic SSO/Bearer machine et diagnostic des erreurs
+  de chargement. Aucune connexion Dolibarr ajoutée.
+- Version candidate : `0.3.1~ynh1`, branche `preview`, tag prévu `v0.3.1`.
+- Preuves locales : `.arcenal/MANUAL_MISSIONS.md` ; 70 exécutions unittest,
+  recette navigateur synthétique et vérifications de syntaxe/diff réussies.
+- Compatibilité : schéma des missions inchangé, aucune suppression ; les accès
+  MCP existants ne gagnent pas automatiquement de nouvelles missions.
+- GitHub / Store : publication en cours, source et résultats à compléter.
+- Installation et cycle de vie YunoHost réels : NON_EXÉCUTÉS. Sauvegarder avant
+  mise à jour puis vérifier création, note, rechargement et accès MCP admin.
+- Retour arrière : restaurer ensemble code et données depuis une sauvegarde
+  YunoHost complète ; ne pas supprimer la base ni réinstaller pour contourner
+  une erreur. La recette locale ne prouve pas la santé du serveur distant.
+
+## Historique — diffusion 0.3.0
 
 Date : 20 octobre 2026. Publication GitHub et ARCenal Store demandée explicitement
 par Damien après développement. La cible reste Preview, sans promotion stable.

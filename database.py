@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -164,6 +164,39 @@ def get_mission(database_path, mission_uuid):
     with connect(database_path) as connection:
         row = connection.execute("SELECT * FROM missions WHERE uuid = ?", (mission_uuid,)).fetchone()
         return dict(row) if row else None
+
+
+class MissionConflict(ValueError):
+    pass
+
+
+def create_mission(database_path, payload):
+    if not isinstance(payload, dict):
+        raise ValueError('Formulaire de mission invalide.')
+    fields = {}
+    for key, label, limit in [('client_name', 'Le client', 160), ('title', 'L’intitulé', 240), ('reference', 'La référence', 100)]:
+        value = payload.get(key, '')
+        if not isinstance(value, str):
+            raise ValueError(f'{label} doit être du texte.')
+        value = value.strip()
+        if (not value and key != 'reference') or len(value) > limit or any(ord(char) < 32 for char in value):
+            raise ValueError(f'{label} est obligatoire (sauf référence) et limité à {limit} caractères, sans retour à la ligne.')
+        fields[key] = value
+    raw_date = payload.get('mission_date')
+    try:
+        if not isinstance(raw_date, str) or date.fromisoformat(raw_date).isoformat() != raw_date:
+            raise ValueError()
+    except ValueError:
+        raise ValueError('La date doit être une date valide au format AAAA-MM-JJ.') from None
+    mission_uuid = str(uuid4())
+    fields.update(uuid=mission_uuid, mission_date=raw_date, status='in_progress')
+    fields['reference'] = fields['reference'] or f'REPORT-{raw_date[:4]}-{mission_uuid.upper()}'
+    try:
+        with connect(database_path) as connection:
+            connection.execute('INSERT INTO missions (uuid, client_name, title, reference, status, mission_date) VALUES (:uuid, :client_name, :title, :reference, :status, :mission_date)', fields)
+    except sqlite3.IntegrityError:
+        raise MissionConflict('Cette référence existe déjà. Choisissez une autre référence.') from None
+    return fields
 
 
 def list_entries(database_path, mission_uuid):

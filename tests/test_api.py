@@ -62,6 +62,33 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(status, '400 Bad Request')
         self.assertIn('note', payload['error'])
 
+    def test_create_manual_mission_and_persist_without_changing_existing_missions(self):
+        before = database.list_missions(app.DATABASE_PATH)
+        payload = {'client_name': ' Client recette ', 'title': ' Poste de test ', 'mission_date': '2026-10-20'}
+        status, created = self.request('POST', '/api/v1/missions', json.dumps(payload).encode())
+        self.assertEqual(status, '201 Created')
+        self.assertEqual(created['client_name'], 'Client recette')
+        self.assertEqual(created['title'], 'Poste de test')
+        self.assertTrue(created['reference'].startswith('REPORT-2026-'))
+        self.assertEqual(created['status'], 'in_progress')
+        database.initialise(app.DATABASE_PATH)
+        self.assertEqual(database.get_mission(app.DATABASE_PATH, created['uuid']), created)
+        self.assertEqual(database.list_entries(app.DATABASE_PATH, created['uuid']), [])
+        for existing in before:
+            self.assertEqual(database.get_mission(app.DATABASE_PATH, existing['uuid']), existing)
+        status, entry = self.request('POST', f"/api/v1/missions/{created['uuid']}/entries", b'{"content":"Premier controle"}')
+        self.assertEqual(status, '201 Created')
+        self.assertEqual(entry['mission_uuid'], created['uuid'])
+
+    def test_create_mission_rejects_duplicate_reference_and_invalid_fields(self):
+        valid = {'client_name': 'Recette', 'title': 'Mission manuelle', 'reference': 'TEST-001', 'mission_date': '2026-10-20'}
+        self.assertEqual(self.request('POST', '/api/v1/missions', json.dumps(valid).encode())[0], '201 Created')
+        self.assertEqual(self.request('POST', '/api/v1/missions', json.dumps(valid).encode())[0], '409 Conflict')
+        for invalid in [None, [], {}, dict(valid, client_name='  '), dict(valid, title=12), dict(valid, title='x'*241), dict(valid, reference='x'*101), dict(valid, reference='line\nbreak'), dict(valid, mission_date='2026-02-30'), dict(valid, mission_date='20261020'), dict(valid, mission_date=None)]:
+            with self.subTest(payload=invalid):
+                self.assertEqual(self.request('POST', '/api/v1/missions', json.dumps(invalid).encode())[0], '400 Bad Request')
+        self.assertEqual(len(database.list_missions(app.DATABASE_PATH)), 3)
+
     def test_uploads_and_serves_a_mission_photo(self):
         mission_uuid = database.list_missions(app.DATABASE_PATH)[0]['uuid']
         png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')

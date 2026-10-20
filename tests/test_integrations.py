@@ -205,6 +205,38 @@ class IntegrationsTest(unittest.TestCase):
         self.assertEqual(self.request('POST', base, {'content': 'Note'}, admin=True)[0], '403 Forbidden')
         self.assertEqual(self.request('POST', base, {'content': 'Note'}, admin=True, origin='https://report.example.org')[0], '201 Created')
 
+    def test_create_mission_requires_sso_origin_and_no_machine_token(self):
+        payload = {'client_name': 'Recette', 'title': 'Poste manuel', 'mission_date': '2026-10-20'}
+        origin = 'https://report.example.org'
+        self.assertEqual(self.request('POST', '/api/v1/missions', payload, origin=origin)[0], '401 Unauthorized')
+        self.assertEqual(self.request('POST', '/api/v1/missions', payload, admin=True)[0], '403 Forbidden')
+        self.assertEqual(self.request('POST', '/api/v1/missions', payload, admin=True, origin='https://evil.example')[0], '403 Forbidden')
+        self.assertEqual(self.request('POST', '/api/v1/missions', payload, token=self.token, admin=True, origin=origin)[0], '403 Forbidden')
+        self.assertEqual(len(database.list_missions(self.path)), 2)
+        status, mission, _ = self.request('POST', '/api/v1/missions', payload, admin=True, origin=origin,
+                                        extra={'HTTP_AUTHORIZATION': 'Basic cmVjZXR0ZTpmYWtl'})
+        self.assertEqual(status, '201 Created')
+        self.assertEqual(database.get_mission(self.path, mission['uuid'])['title'], 'Poste manuel')
+        # Creation never expands an existing MCP token's mission scope.
+        result = self.rpc('tools/call', {'name': 'report_list_missions'}, extra={'HTTP_MCP_PROTOCOL_VERSION': '2025-06-18'})[1]
+        self.assertEqual(len(result['result']['structuredContent']['items']), 1)
+
+    def test_yunohost_basic_header_does_not_hide_missions_for_an_authenticated_user(self):
+        # Synthetic Basic value only: YunoHost's SSO may forward this header
+        # alongside the trusted Remote-User identity. It is NOT a MCP Bearer.
+        extra = {'HTTP_AUTHORIZATION': 'Basic cmVjZXR0ZTpmYWtlLXBhc3N3b3Jk'}
+        status, body, _ = self.request('GET', '/api/v1/missions', admin=True, extra=extra)
+        self.assertEqual(status, '200 OK')
+        self.assertEqual(len(body['missions']), 2)
+        status, body, _ = self.request('GET', f"/api/v1/missions/{self.mission['uuid']}/entries", admin=True, extra=extra)
+        self.assertEqual(status, '200 OK')
+        self.assertIn('entries', body)
+
+    def test_basic_header_alone_never_authenticates_a_yunohost_user(self):
+        extra = {'HTTP_AUTHORIZATION': 'Basic cmVjZXR0ZTpmYWtlLXBhc3N3b3Jk'}
+        self.assertEqual(self.request('GET', '/api/v1/missions', extra=extra)[0], '401 Unauthorized')
+        self.assertEqual(self.request('POST', '/mcp', {}, extra=extra)[0], '401 Unauthorized')
+
     def test_package_copies_modules_and_protects_separate_routes(self):
         import tomllib
         root = Path(app.ROOT)

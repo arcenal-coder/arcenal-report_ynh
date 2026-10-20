@@ -136,6 +136,14 @@ def api(environ, start_response, path):
     method = environ["REQUEST_METHOD"]
     if segments == ["api", "v1", "missions"] and method == "GET":
         return json_response(start_response, "200 OK", {"missions": database.list_missions(DATABASE_PATH)})
+    if segments == ['api', 'v1', 'missions'] and method == 'POST':
+        try:
+            mission = database.create_mission(DATABASE_PATH, read_json(environ))
+            return json_response(start_response, '201 Created', mission)
+        except database.MissionConflict as error:
+            return json_response(start_response, '409 Conflict', {'error': str(error)})
+        except ValueError as error:
+            return json_response(start_response, '400 Bad Request', {'error': str(error)})
     if len(segments) == 4 and segments[:3] == ["api", "v1", "missions"] and method == "GET":
         mission = database.get_mission(DATABASE_PATH, segments[3])
         return json_response(start_response, "200 OK", mission) if mission else json_response(start_response, "404 Not Found", {"error": "Mission introuvable."})
@@ -320,8 +328,12 @@ def application(environ, start_response):
     path = urlparse(environ.get("PATH_INFO", "/")).path
     if path == '/mcp' or path.startswith('/api/integrations/v1/') or path == '/api/integrations/v1' or path == '/api/v1/integrations' or path.startswith('/api/v1/integrations/'):
         return integration_http.handle(environ, start_response, DATABASE_PATH, path)
-    # Machine credentials must never fall through to the browser's writable API.
-    if environ.get('HTTP_AUTHORIZATION') and path.startswith('/api/'):
+    # SSOwat may forward Basic as well as the trusted Remote-User identity.
+    # Basic is ignored here, NEVER accepted as proof of identity: the SSO check
+    # below still applies. Bearer/unknown schemes cannot enter writable APIs.
+    authorization = environ.get('HTTP_AUTHORIZATION', '')
+    scheme = authorization.partition(' ')[0].casefold()
+    if authorization and scheme != 'basic' and path.startswith('/api/'):
         return integration_http.respond(start_response, '403 Forbidden', {'error': 'Ce jeton est réservé aux routes machine en lecture seule.'})
     if path == '/integrations.html':
         try:

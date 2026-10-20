@@ -30,6 +30,8 @@ if __name__ == '__main__':
 
         def fixture(environ, start_response):
             environ['HTTP_REMOTE_USER'] = 'recette'
+            if not environ['PATH_INFO'].startswith('/mcp'):
+                environ.setdefault('HTTP_AUTHORIZATION', 'Basic cmVjZXR0ZTpmYWtl')
             if environ['PATH_INFO'] == '/integrations.html' or environ['PATH_INFO'].startswith('/api/v1/integrations'):
                 environ['HTTP_X_REPORT_ADMIN'] = '1'
             else:

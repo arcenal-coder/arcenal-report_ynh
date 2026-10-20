@@ -4,7 +4,7 @@ id = "arcenal_report"
 name = "ARCenal REPORT"
 description.fr = "Main courante terrain, pièces jointes et préparation des rapports de mission"
 description.en = "Field log, attachments and mission report preparation"
-version = "0.3.0~ynh1"
+version = "0.3.1~ynh1"
 maintainers = ["ARCenal"]
 
 [upstream]

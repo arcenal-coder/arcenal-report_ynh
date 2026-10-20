@@ -55,3 +55,14 @@ vérifié avec SSO et réponse Hermes simulés, sans donnée client ni appel ext
 Preuves et réserves détaillées :
 [API_MCP_VALIDATION.md](.arcenal/API_MCP_VALIDATION.md).
 Installation YunoHost et connexion au Hermes réel : NON EXÉCUTÉES.
+# Recette corrective 0.3.1 — 20 octobre 2026
+
+- RÉUSSI : Ruff ciblé, compilation Python, syntaxe JavaScript et Bash, diff.
+- RÉUSSI : 70 exécutions unittest ; création, doublon, entrées invalides,
+  conservation des missions, refus sans session/origine ou avec jeton MCP.
+- RÉUSSI : recette navigateur sur données synthétiques, création, première note,
+  rechargement et refus du doublon. Voir `.arcenal/MANUAL_MISSIONS.md`.
+- NON_EXÉCUTÉ : installation/retrait/réinstallation, upgrade, sauvegarde et
+  restauration YunoHost réels ; package_check Incus et permissions SSO réelles.
+  Installation volontairement laissée au propriétaire après publication Preview.
+
